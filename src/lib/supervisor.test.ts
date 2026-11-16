@@ -172,3 +172,22 @@ test("claiming a booking with the form incomplete is called out", () => {
   done.agent("Вы записаны на 17 ноября.");
   expect(done.sent).toEqual([]);
 });
+
+test("a bare name answering the name question is held, the agent is told to read it back, and a yes fills it", () => {
+  const s = run();
+  s.agent("Здравствуйте, автосервис АвтоЛаб, администратор записи. Как к вам обращаться?");
+  s.say("Сергей.");
+  expect(s.sent).toEqual([expect.stringMatching(/name: Сергей.*Read it back next/)]);
+  s.agent("Приятно познакомиться, Сергей. Всё верно?");
+  s.say("да");
+  expect(s.profile().name).toBe("Сергей");
+});
+
+test("a bare word is not a name unless the agent just asked for one", () => {
+  const s = run();
+  s.agent("Какая у вас машина?");
+  s.say("Солярис");
+  s.agent("Солярис, верно?");
+  s.say("да");
+  expect(s.profile().name).toBe("");
+});

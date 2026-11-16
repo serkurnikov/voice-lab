@@ -18,6 +18,8 @@ export interface SessionDeps {
   functions?: ClientFunction[];
   /** What the page already knows about the customer, read at start and added to the role. */
   briefing?: () => string;
+  /** The agent's first line, read at start; it may depend on who is on file. */
+  greeting?: () => string;
 }
 
 /** A function the agent may call; it runs here in the page, not on the engine's side. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readBacks } from "./readBack";
-import { DEEPGRAM_PROMPT, READ_BACK_EXAMPLE, READ_BACK_EXAMPLE_RU, SERVICE_FACTS, SHOP_FACTS, SYSTEM_PROMPT, today, TOOL_NAMES } from "./persona";
+import { DEEPGRAM_PROMPT, FIRST_MESSAGE, greeting, READ_BACK_EXAMPLE, READ_BACK_EXAMPLE_RU, SERVICE_FACTS, SHOP_FACTS, SYSTEM_PROMPT, today, TOOL_NAMES } from "./persona";
 
 describe("persona", () => {
   it("is a car-service desk that names every client tool", () => {
@@ -78,5 +78,11 @@ describe("persona", () => {
     expect(today(new Date(2026, 10, 16))).toBe(
       "Today is Monday, 16.11.2026. A date said without a year is the next one from today.",
     );
+  });
+
+  it("greets a known customer with their name as a read-back the form can confirm", () => {
+    expect(greeting("")).toBe(FIRST_MESSAGE);
+    expect(FIRST_MESSAGE).toMatch(/Как к вам обращаться/);
+    expect(readBacks(greeting("Сергей"))).toEqual({ name: "Сергей" });
   });
 });

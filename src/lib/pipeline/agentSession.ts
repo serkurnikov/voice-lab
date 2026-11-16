@@ -96,7 +96,10 @@ export class AgentSession implements VoiceSession {
       // The role travels with the handshake: the server applies it only at start.
       // The greeting overrides the dashboard's too; the agent must allow both overrides.
       overrides: {
-        agent: { prompt: { prompt: withBriefing(SYSTEM_PROMPT, this.deps.briefing?.()) }, firstMessage: FIRST_MESSAGE },
+        agent: {
+          prompt: { prompt: withBriefing(SYSTEM_PROMPT, this.deps.briefing?.()) },
+          firstMessage: this.deps.greeting?.() ?? FIRST_MESSAGE,
+        },
       },
       // Only the handlers travel from here: each tool must also be declared on the agent.
       clientTools: Object.fromEntries((this.deps.functions ?? []).map((f) => [f.name, f.run])),

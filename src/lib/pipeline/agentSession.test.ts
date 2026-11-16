@@ -32,7 +32,7 @@ vi.mock("@elevenlabs/client", () => ({
 
 afterEach(() => vi.restoreAllMocks());
 
-async function harness(briefing?: () => string) {
+async function harness(briefing?: () => string, greeting?: () => string) {
   const bus = new EventBus();
   const events: PipelineEvent[] = [];
   bus.on((e) => events.push(e));
@@ -45,6 +45,7 @@ async function harness(briefing?: () => string) {
     onTurn: (m) => turns.push(m),
     onEnded: () => {},
     briefing,
+    greeting,
   });
 
   await session.start();
@@ -113,6 +114,13 @@ test("the agent opens the call and introduces the shop instead of waiting for th
   const overrides = startOptions.overrides as { agent: { firstMessage?: string } };
   expect(overrides.agent.firstMessage).toBe(FIRST_MESSAGE);
   expect(FIRST_MESSAGE).toMatch(/АвтоЛаб/);
+});
+
+test("the page's greeting, which knows a returning customer, replaces the default one", async () => {
+  await harness(undefined, () => "Здравствуйте, автосервис АвтоЛаб. Записываю имя: Анна. Верно?");
+
+  const overrides = startOptions.overrides as { agent: { firstMessage?: string } };
+  expect(overrides.agent.firstMessage).toMatch(/Записываю имя: Анна/);
 });
 
 test("what is on file about the customer rides in the prompt, so the greeting already knows them", async () => {

@@ -16,6 +16,8 @@ const NAME_LEAD = /(?:меня зовут|my name is)\s+/iu;
 // "не Анна, а Мария" — the negated word is skipped along with the particle.
 const NEGATION = new Set(["не", "not"]);
 const FILLER = new Set(["это", "ну", "а", "вот", "but", "uh", "um"]);
+const ASKS_NAME = /как\s+(?:к\s+вам\s+обращаться|вас\s+зовут)|what(?:'s| is)\s+your\s+name|who\s+am\s+I\s+speaking/iu;
+const NOT_A_NAME = new Set(["да", "нет", "не", "знаю", "я", "меня", "зовут", "привет", "здравствуйте", "алло", "yes", "no", "hi", "hello", "i", "im", "it", "is", ...FILLER]);
 
 function findPlate(text: string): string | undefined {
   for (const m of text.matchAll(PLATE)) {
@@ -46,6 +48,14 @@ function findName(text: string): string | undefined {
   }
   const name = words[i];
   return name && name.length >= 2 ? name[0].toUpperCase() + name.slice(1) : undefined;
+}
+
+/** "Сергей" said alone, right after the agent asked for the name. */
+function bareName(text: string): string | undefined {
+  const words = (text.match(/[\p{L}-]+/gu) ?? []).filter((w) => !NOT_A_NAME.has(w.toLowerCase().replace(/'/g, "")));
+  // A sentence is not a name; a short answer is.
+  if (words.length < 1 || words.length > 2 || words[0].length < 2) return undefined;
+  return words[0][0].toUpperCase() + words[0].slice(1);
 }
 
 /** What the customer just said that belongs in the form, read straight off the transcript. */
@@ -114,6 +124,8 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
   let said: Partial<ClientProfile> = {};
   // When ElevenLabs streams a reply, its final agent-reply is not emitted; the tokens are the reply.
   let streamed = "";
+  // The answer to "как к вам обращаться?" is often the bare name, which no phrase pattern catches.
+  let askedName = false;
   const sent = new Set<string>();
   // The same hint twice reads to the model as insistence.
   const hint = (key: string, text: string) => {
@@ -123,6 +135,7 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
 
   const reply = (text: string) => {
     streamed = "";
+    askedName = ASKS_NAME.test(text);
     const heard = readBacks(text);
     const fields = Object.keys(heard) as (keyof ClientProfile)[];
     // Two read-backs in one breath leave a lone "да" ambiguous, so neither is taken on it.
@@ -148,7 +161,16 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
         for (const k of Object.keys(pending)) delete said[k as keyof ClientProfile];
       }
       pending = null;
-      said = { ...said, ...extractFields(text) };
+      const found = extractFields(text);
+      if (askedName && !found.name) found.name = bareName(text);
+      askedName = false;
+      for (const k of Object.keys(found) as (keyof ClientProfile)[]) {
+        const v = found[k];
+        if (!v) delete found[k];
+        // Only a read-back and a yes fill the form, so the agent is told to do it now, not later.
+        else if (profile()[k] !== v) hint(`readback:${k}:${v}`, `The customer just gave the ${k}: ${v}. Read it back next, in the prescribed shape, before asking anything else.`);
+      }
+      said = { ...said, ...found };
       for (const [label, cue] of UNSAFE) {
         if (cue.test(text)) hint(`unsafe:${label}`, `The customer described "${label}". Before anything else, tell them not to drive the car and to call a tow truck.`);
       }

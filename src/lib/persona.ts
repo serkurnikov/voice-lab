@@ -33,6 +33,14 @@ export const PROMPT_FACTS: string[] = [...SHOP_FACTS, ...SERVICE_FACTS];
 /** Said the moment the call connects, so the customer is not the one who has to start. */
 export const FIRST_MESSAGE = "Здравствуйте, автосервис АвтоЛаб, администратор записи. Как к вам обращаться?";
 
+/**
+ * A known customer is greeted with their name as a read-back, so the first "да" already
+ * confirms it in the form instead of the agent asking for what is on file.
+ */
+export function greeting(name: string): string {
+  return name ? `Здравствуйте, автосервис АвтоЛаб. Записываю имя: ${name}. Верно?` : FIRST_MESSAGE;
+}
+
 /** The read-back the form parses; the prompt quotes it so the two cannot drift. */
 export const READ_BACK_EXAMPLE_RU = "Записываю телефон: +7 912 345 67 89. Верно?";
 export const READ_BACK_EXAMPLE = "Noting phone: +7 912 345 67 89. Correct?";
