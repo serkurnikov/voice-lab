@@ -38,3 +38,14 @@
   text-transform: none;
   color: var(--fail);
 }
+
+.client-form .form-download {
+  justify-self: start;
+  padding: 8px 12px;
+  font: 600 12px/1 var(--sans);
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--field-edge);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
