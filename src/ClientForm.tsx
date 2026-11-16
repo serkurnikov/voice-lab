@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FIELDS, formText, LABELS, REQUIRED, validate, type ClientProfile, type Lang } from "./lib/formModel";
+import { saveFile } from "./lib/saveFile";
 import "./clientForm.css";
 
 type Props = { value: ClientProfile; lang: Lang; onChange(next: ClientProfile): void };
@@ -40,10 +41,5 @@ export function ClientForm({ value, lang, onChange }: Props) {
 }
 
 function download(text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `form-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveFile(`form-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`, text);
 }

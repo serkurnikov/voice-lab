@@ -12,6 +12,7 @@ import { makeTools } from "./lib/tools";
 import { supervise } from "./lib/supervisor";
 import { ClientForm } from "./ClientForm";
 import { Recorder, fixtureFilename, toFixtureJson } from "./lib/recorder";
+import { saveFile } from "./lib/saveFile";
 import { Waterfall } from "./scene/Waterfall";
 import { StageBreakdown } from "./scene/StageBreakdown";
 import { Transcript } from "./scene/Transcript";
@@ -173,14 +174,7 @@ export function App() {
     if (!conversation) return;
 
     const name = fixtureFilename(conversation);
-    const url = URL.createObjectURL(
-      new Blob([toFixtureJson(conversation)], { type: "application/json" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveFile(name, toFixtureJson(conversation), "application/json");
     setSavedAs(name);
   };
   saveRecordingRef.current = recording ? saveRecording : null;
