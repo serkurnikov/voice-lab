@@ -150,7 +150,17 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
     }
   };
 
-  return bus.on((e) => {
+  // Without a word that the case is closed the model keeps asking, round and round.
+  const closeIfComplete = () => {
+    const p = profile();
+    if (!p.date.trim() || nudge(p)) return;
+    hint(
+      `done:${p.name}|${p.phone}|${p.car}|${p.service}|${p.date}`,
+      `The booking is recorded: ${p.service} for ${p.name}, ${p.car}, on ${p.date}, phone ${p.phone}. Tell the customer in one sentence what they are booked for, say goodbye, and ask nothing more.`,
+    );
+  };
+
+  const off = bus.on((e) => {
     if (e.type === "llm-token") streamed += e.token;
     else if (e.type === "agent-reply") reply(e.text);
     else if (e.type === "stt-result") {
@@ -180,5 +190,7 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
       if (text && text !== last) send(text);
       last = text;
     }
+    if (e.type === "stt-result" || e.type === "tool-result") closeIfComplete();
   });
+  return off;
 }

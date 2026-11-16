@@ -191,3 +191,19 @@ test("a bare word is not a name unless the agent just asked for one", () => {
   s.say("да");
   expect(s.profile().name).toBe("");
 });
+
+test("once the last detail is confirmed the agent is told the case is closed, once", () => {
+  const s = run({ name: "Сергей", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "" });
+  s.agent("Записываю дату: 17.11.2026 10:30. Верно?");
+  expect(s.sent).toEqual([]);
+  s.say("да");
+  expect(s.sent).toEqual([expect.stringMatching(/booking is recorded.*say goodbye, and ask nothing more/)]);
+  s.say("спасибо");
+  expect(s.sent).toHaveLength(1);
+});
+
+test("a form with no date is not closed", () => {
+  const s = run({ name: "Сергей", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "" });
+  s.say("ага");
+  expect(s.sent).toEqual([]);
+});

@@ -86,3 +86,7 @@ describe("persona", () => {
     expect(readBacks(greeting("Сергей"))).toEqual({ name: "Сергей" });
   });
 });
+
+it("the prompt tells the agent to wrap up once the booking is recorded", () => {
+  expect(SYSTEM_PROMPT).toMatch(/system says the booking is recorded\. Once it is recorded, say in one sentence what the\s+customer is booked for, say goodbye and ask nothing more/);
+});
