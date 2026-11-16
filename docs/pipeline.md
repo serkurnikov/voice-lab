@@ -71,7 +71,7 @@ Three observers sit on the bus beside the scene; none of them is in the session.
 - [`supervisor.ts`](../src/lib/supervisor.ts) fills the form without relying on tool calls.
   On `agent-reply` it parses the read-back the prompt prescribes ("Записываю телефон: … Верно?",
   [`readBack.ts`](../src/lib/readBack.ts)) and holds it until the next `stt-result`: only a "да"
-  puts it in the form, so a mis-heard value never lands. A date already gone is never filled. A name, phone
+  puts it in the form, so a mis-heard value never lands. A date is put through the tools' own check (`dateRefusal`: a real day, not gone, not a Sunday) in whatever form it was read back, and is not filled otherwise. A name, phone
   or plate the customer said themselves waits the same way: it is filled once the agent repeats
   it, in any wording, and the customer says yes. It sends, once each, a stop-driving hint for
   unsafe symptoms and a correction when the agent claims a booking before `book_appointment` has succeeded. Both

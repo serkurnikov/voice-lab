@@ -1,5 +1,5 @@
 import { searchServices } from "./catalog";
-import { isPast } from "./formModel";
+import { dateRefusal } from "./formModel";
 import type { ClientProfile } from "./formModel";
 
 type Field = keyof ClientProfile;
@@ -113,13 +113,11 @@ function normalise(field: Field, raw: string, now: Date): string {
   if (field === "date") {
     // Spoken as DD.MM.YYYY; the form keeps YYYY-MM-DD with the time after it.
     const m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[\s,]+(?:в\s+|at\s+)?(\d{1,2}):(\d{2}))?$/iu.exec(raw);
-    if (m) {
-      const day = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-      const value = m[4] ? `${day} ${m[4].padStart(2, "0")}:${m[5]}` : day;
-      // A day already gone is a mis-heard date; the agent has to ask again, not book it.
-      return isPast(value, now) ? "" : value;
-    }
-    return spokenDate(raw, now) ?? raw;
+    const day = m && `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    const value = m ? (m[4] ? `${day} ${m[4].padStart(2, "0")}:${m[5]}` : day!) : spokenDate(raw, now) ?? raw;
+    // However it was said, a date the shop cannot take is a mis-heard one: the agent has to
+    // ask again, not book it.
+    return dateRefusal(value, now) ? "" : value;
   }
   if (field === "service") {
     // Only a price-list service is bookable; anything else is left for the agent to clarify.

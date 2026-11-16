@@ -56,6 +56,18 @@ export function isPast(date: string, now: Date): boolean {
   return day < today || (day === today && !!time && time <= `${pad(now.getHours())}:${pad(now.getMinutes())}`);
 }
 
+/**
+ * Why the shop cannot take a "YYYY-MM-DD[ HH:MM]" value, or undefined when it can. The one
+ * check for every way a date arrives: a tool argument, a read-back in digits or in words.
+ */
+export function dateRefusal(value: string, now: Date): "format" | "past" | "sunday" | undefined {
+  const when = /^(\S+)(?: ([01]\d|2[0-3]):[0-5]\d)?$/.exec(value.trim());
+  if (!when || !isIsoDate(when[1])) return "format";
+  if (isPast(value, now)) return "past";
+  // The prompt says Sunday is closed; a slot on one would contradict it.
+  if (new Date(`${when[1]}T00:00Z`).getUTCDay() === 0) return "sunday";
+}
+
 export function validate(p: ClientProfile, lang: Lang, now = new Date()): FormErrors {
   const t = MSG[lang];
   const errors: FormErrors = {};

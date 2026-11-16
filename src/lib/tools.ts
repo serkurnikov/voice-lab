@@ -1,6 +1,6 @@
 import { searchServices, serviceFact, SERVICES } from "./catalog";
 import type { Confirmed } from "./confirmed";
-import { applyPatch, FIELDS, isIsoDate, isPast, missingRequired, validate, type ClientProfile } from "./formModel";
+import { applyPatch, dateRefusal, FIELDS, isIsoDate, isPast, missingRequired, validate, type ClientProfile } from "./formModel";
 import type { ClientFunction } from "./pipeline/session";
 import type { PipelineEvent } from "./types";
 
@@ -29,10 +29,8 @@ export function makeTools({ profile, setProfile, confirmed, report, now = () => 
 
   /** Why nothing can happen on this date, for both the offer and the booking. */
   const closed = (date: unknown): string | undefined => {
-    if (!isIsoDate(String(date))) return "date must be YYYY-MM-DD";
-    if (isPast(String(date), now())) return "date has passed";
-    // The prompt says Sunday is closed; a slot on one would contradict it.
-    if (new Date(`${date}T00:00Z`).getUTCDay() === 0) return "closed on Sunday";
+    const why = isIsoDate(String(date)) ? dateRefusal(String(date), now()) : "format";
+    return why && { format: "date must be YYYY-MM-DD", past: "date has passed", sunday: "closed on Sunday" }[why];
   };
 
   return [

@@ -78,3 +78,18 @@ test("a date read back that is already gone is not filled", () => {
   expect(readBacks("Записываю дату: 10.11.2026 в 10:00. Верно?", now)).toEqual({});
   expect(readBacks("Записываю дату: 20.11.2026. Верно?", now)).toEqual({ date: "2026-11-20" });
 });
+
+test("a date is judged the same however it was read back: real, not gone, not a Sunday", () => {
+  const date = (said: string) => readBacks(`Записываю дату: ${said}. Верно?`, NOW).date;
+  // 10 November is gone in every spelling, not only in DD.MM.YYYY.
+  for (const gone of ["10.11.2026", "10 ноября 2026", "2026-11-10", "2026-11-10 10:30"]) expect(date(gone), gone).toBeUndefined();
+  for (const unreal of ["31 февраля 2027", "31.02.2027", "2027-02-31"]) expect(date(unreal), unreal).toBeUndefined();
+  for (const sunday of ["22.11.2026", "22 ноября 2026", "2026-11-22", "22 ноября в 10:30"]) expect(date(sunday), sunday).toBeUndefined();
+  // Noon has struck: this morning is as gone as last week.
+  expect(date("сегодня в 10:30")).toBeUndefined();
+  expect(date("в пятницу")).toBeUndefined();
+
+  expect(date("17 ноября 2026")).toBe("2026-11-17");
+  expect(date("2026-11-17 10:30")).toBe("2026-11-17 10:30");
+  expect(date("сегодня в 14:00")).toBe("2026-11-16 14:00");
+});
