@@ -88,12 +88,16 @@ test("the agent's update_form lands in the form on screen and in the store", asy
   expect(stored).toMatchObject({ name: "Анна", phone: "+7 900 123-45-67", plate: "А123ВС77" });
 });
 
-test("what the customer says reaches the form even when the agent calls no tool", async () => {
+test("what the customer says reaches the form once confirmed, even when the agent calls no tool", async () => {
   token = "vibe_test";
   render(<App />);
   await startConversation();
 
-  act(() => deps!.bus.emit({ type: "stt-result", result: { text: "телефон 89001234567", words: [] } }));
+  act(() => {
+    deps!.bus.emit({ type: "stt-result", result: { text: "телефон 89001234567", words: [] } });
+    deps!.bus.emit({ type: "agent-reply", text: "Записываю телефон: 89001234567. Верно?", at: 0 });
+    deps!.bus.emit({ type: "stt-result", result: { text: "да", words: [] } });
+  });
 
   await waitFor(() => expect((screen.getByLabelText(/Phone/) as HTMLInputElement).value).toBe("89001234567"));
   expect(stored.phone).toBe("89001234567");

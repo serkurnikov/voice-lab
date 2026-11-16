@@ -71,10 +71,11 @@ Three observers sit on the bus beside the scene; none of them is in the session.
 - [`supervisor.ts`](../src/lib/supervisor.ts) fills the form without relying on tool calls.
   On `agent-reply` it parses the read-back the prompt prescribes ("Записываю телефон: … Верно?",
   [`readBack.ts`](../src/lib/readBack.ts)) and holds it until the next `stt-result`: only a "да"
-  puts it in the form, so a mis-heard value never lands. A date already gone is never filled. On `stt-result` it also reads a name, phone and plate from what the customer said.
-  On `turn-end` it sends what the form still lacks as a contextual update, once per change, and
-  once each a stop-driving hint for unsafe symptoms and a correction when the agent claims a
-  booking with the form incomplete.
+  puts it in the form, so a mis-heard value never lands. A date already gone is never filled. A name, phone
+  or plate the customer said themselves waits the same way: it is filled once the agent repeats
+  it, in any wording, and the customer says yes. It sends, once each, a stop-driving hint for
+  unsafe symptoms and a correction when the agent claims a booking with the form incomplete. The
+  "form still missing" nudge hangs on `turn-end`, which no session emits yet, so it never fires.
 - [`tools.ts`](../src/lib/tools.ts) is the one tool list for both engines: `search_services`,
   `find_slots`, `book_appointment`, `update_form`. Each run emits `tool-result` with the facts it
   handed the agent. **On ElevenLabs they run only if the same names are declared as client tools

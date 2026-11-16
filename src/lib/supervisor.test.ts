@@ -79,10 +79,35 @@ function run(start: ClientProfile = EMPTY_PROFILE) {
   return { say, agent, stream, endTurn, sent, profile: () => p };
 }
 
-test("what the customer says lands in the form without any tool call", () => {
+test("what the customer says waits for the agent to repeat it and the customer to say yes", () => {
   const s = run({ ...EMPTY_PROFILE, car: "Kia Rio" });
   s.say("меня зовут Анна, телефон 89001234567");
-  expect(s.profile()).toMatchObject({ name: "Анна", phone: "89001234567", car: "Kia Rio" });
+  expect(s.profile()).toEqual({ ...EMPTY_PROFILE, car: "Kia Rio" });
+  s.agent("Ваш телефон +7 900 123-45-67, правильно?");
+  expect(s.profile().phone).toBe("");
+  s.say("да");
+  expect(s.profile()).toMatchObject({ name: "", phone: "89001234567" });
+  s.agent("Спасибо, Анна. Всё так?");
+  s.say("да");
+  expect(s.profile().name).toBe("Анна");
+});
+
+test("a yes to a question that does not repeat the customer's words fills nothing", () => {
+  const s = run();
+  s.say("телефон 89001234567");
+  s.agent("Хотите записаться на завтра?");
+  s.say("да");
+  s.agent("Ваш телефон 8 900 123 45 67, верно?");
+  s.say("нет, другой");
+  expect(s.profile()).toEqual(EMPTY_PROFILE);
+});
+
+test("the agent's own read-back wins over a repeated word in the same reply", () => {
+  const s = run();
+  s.say("меня зовут Анна");
+  s.agent("Анна, записываю машину: Kia Rio. Верно?");
+  s.say("да");
+  expect(s.profile()).toMatchObject({ name: "", car: "Kia Rio" });
 });
 
 test("a returning customer is briefed by the prompt only, and each nudge is sent once", () => {
@@ -91,7 +116,8 @@ test("a returning customer is briefed by the prompt only, and each nudge is sent
   s.endTurn();
   s.endTurn();
   expect(s.sent).toEqual(["Form still missing: phone, car, service. Ask for one of them next."]);
-  s.say("телефон 89001234567");
+  s.agent("Записываю телефон: 89001234567. Верно?");
+  s.say("да");
   s.endTurn();
   expect(s.sent.at(-1)).toBe("Form still missing: car, service. Ask for one of them next.");
 });

@@ -90,14 +90,28 @@ interface Deps {
   send: (text: string) => void;
 }
 
+const squash = (s: string) => s.replace(/\s/g, "").toUpperCase().replace(/[A-Z]/g, (c) => CYRILLIC[c] ?? c);
+
+/** True when the agent's reply repeats a value the customer said, in whatever wording. */
+function echoes(reply: string, field: keyof ClientProfile, value: string): boolean {
+  // "+7 900…" and "8 900…" are one number: the last ten digits are what has to come back.
+  if (field === "phone") return reply.replace(/\D/g, "").includes(value.replace(/\D/g, "").slice(-10));
+  if (field === "plate") return squash(reply).includes(value);
+  // The ending varies with the case: "Анну" is still "Анна".
+  return reply.toLowerCase().includes(value.toLowerCase().slice(0, Math.max(3, value.length - 1)));
+}
+
 /**
- * Fills the form from read-backs the customer said yes to and from their own words, and steers the
- * model with what is left. Works whether or not the model ever calls update_form.
+ * Fills the form from values the customer said yes to — the agent's read-backs, or the customer's
+ * own words once the agent repeats them — and steers the model with what is left. Works whether
+ * or not the model ever calls update_form.
  */
 export function supervise({ bus, profile, setProfile, send }: Deps): () => void {
   let last: string | null = null;
   // The value just read back waits for the customer's yes; a mis-heard read-back never reaches the form.
   let pending: Partial<ClientProfile> | null = null;
+  // What the customer said themselves; speech recognition mis-hears too, so it waits for the same yes.
+  let said: Partial<ClientProfile> = {};
   // When ElevenLabs streams a reply, its final agent-reply is not emitted; the tokens are the reply.
   let streamed = "";
   const sent = new Set<string>();
@@ -113,6 +127,10 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
     const fields = Object.keys(heard) as (keyof ClientProfile)[];
     // Two read-backs in one breath leave a lone "да" ambiguous, so neither is taken on it.
     pending = fields.length === 1 ? heard : null;
+    if (!fields.length) {
+      const echoed = (Object.keys(said) as (keyof ClientProfile)[]).filter((k) => echoes(text, k, said[k]!));
+      if (echoed.length === 1) pending = { [echoed[0]]: said[echoed[0]] };
+    }
     if (fields.length > 1) hint(`two:${text}`, "Read back one value per turn and wait for the customer's answer.");
     if (CLAIMS_BOOKED.test(text) && nudge(profile())) {
       hint(`claim:${missingRequired(profile()).join(",")}`, "Nothing is booked yet. Correct yourself and ask for what the form is still missing.");
@@ -125,10 +143,12 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
     else if (e.type === "stt-result") {
       const text = e.result.text;
       if (streamed.trim()) reply(streamed);
-      if (pending && accepts(text)) setProfile(applyPatch(profile(), pending));
+      if (pending && accepts(text)) {
+        setProfile(applyPatch(profile(), pending));
+        for (const k of Object.keys(pending)) delete said[k as keyof ClientProfile];
+      }
       pending = null;
-      const patch = extractFields(text);
-      if (Object.keys(patch).length) setProfile(applyPatch(profile(), patch));
+      said = { ...said, ...extractFields(text) };
       for (const [label, cue] of UNSAFE) {
         if (cue.test(text)) hint(`unsafe:${label}`, `The customer described "${label}". Before anything else, tell them not to drive the car and to call a tow truck.`);
       }
