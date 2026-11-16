@@ -107,7 +107,7 @@ export function Transcript({ bus }: { bus: EventBus }) {
       <div className="transcript-head">
         conversation
         <span className="transcript-legend">
-          <span className="mark-fact">fact — from tools</span>
+          <span className="mark-fact">fact — from the prompt or a tool</span>
           <span className="mark-assumption">assumption</span>
         </span>
         <button type="button" className="transcript-download" onClick={() => download(listRef.current)}>

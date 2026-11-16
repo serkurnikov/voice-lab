@@ -14,19 +14,20 @@ are interchangeable on ElevenLabs, the Deepgram backup answers in English only.
   drops the connection at start — see [pipeline](pipeline.md#who-decides-the-role).
 - Open the page with a valid token and clear the form.
 
-## 1. Booking, with the form filling as you speak
+## 1. Booking, with the form filling as you confirm
 
 > RU: «Здравствуйте, меня зовут Анна, у меня Kia Rio, нужна замена масла.»
 > EN: "Hi, I'm Anna, I drive a Kia Rio and I need an oil change."
 
-Name, car and service appear in the form while the agent answers. The reply names the
-service and its price — both highlighted as **fact**. Continue:
+Nothing lands in the form on your word alone. The agent reads each value back, one per turn
+(«Записываю имя: Анна. Верно?»), and the field fills when you answer «да» / "yes". The reply
+names the service and its price — both highlighted as **fact**. Continue:
 
 > RU: «На завтра есть время? Давайте в 10:30. Мой телефон +7 900 123-45-67.»
 > EN: "Anything tomorrow? Let's take 10:30. My phone is +7 900 123 45 67."
 
 The agent reads the phone back digit by digit and books after you confirm; the date
-lands in the form.
+lands in the form only once `book_appointment` succeeds.
 
 ## 2. Holding the role
 

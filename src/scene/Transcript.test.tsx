@@ -37,7 +37,7 @@ test("agent lines mark tool data as fact and guesses as assumption, with a legen
   expect(text(".mark-fact")).toEqual(["Замена масла", "2 500 ₽"]);
   expect(text(".mark-assumption")).toEqual(["примерно", "50 минут"]);
   expect(container.querySelector('.line[data-who="agent"] .line-text')?.textContent).toBe("Замена масла стоит 2 500 ₽, займёт примерно 50 минут.");
-  expect(container.querySelector(".transcript-legend .mark-fact")?.textContent).toMatch(/fact/);
+  expect(container.querySelector(".transcript-legend .mark-fact")?.textContent).toBe("fact — from the prompt or a tool");
   expect(container.querySelector(".transcript-legend .mark-assumption")?.textContent).toMatch(/assumption/);
 });
 
