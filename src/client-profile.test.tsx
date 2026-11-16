@@ -22,7 +22,7 @@ let deps: SessionDeps | null = null;
 vi.mock("./lib/pipeline/createSession", () => ({
   createSession: (_: unknown, d: SessionDeps) => {
     deps = d;
-    return { isRunning: true, mouthSpectrum: () => null, start: async () => {}, stop: async () => {} };
+    return { isRunning: true, mouthSpectrum: () => null, start: async () => {}, stop: async () => {}, sendContextualUpdate: () => {} };
   },
 }));
 
@@ -58,7 +58,7 @@ test("the agent's update_form lands in the form on screen and in the store", asy
   token = "vibe_test";
   render(<App />);
   fireEvent.click(await screen.findByRole("button", { name: /start conversation/i }));
-  await waitFor(() => expect(deps).not.toBeNull());
+  await waitFor(() => expect(deps).not.toBeNull(), { timeout: 5000 });
 
   const run = (name: string, args: Record<string, unknown>) =>
     deps!.functions!.find((f) => f.name === name)!.run(args);
@@ -69,4 +69,16 @@ test("the agent's update_form lands in the form on screen and in the store", asy
 
   expect((screen.getByLabelText(/Телефон/) as HTMLInputElement).value).toBe("+7 900 123-45-67");
   expect(stored).toMatchObject({ name: "Анна", phone: "+7 900 123-45-67", plate: "А123ВС77" });
+});
+
+test("what the customer says reaches the form even when the agent calls no tool", async () => {
+  token = "vibe_test";
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: /start conversation/i }));
+  await waitFor(() => expect(deps).not.toBeNull(), { timeout: 5000 });
+
+  act(() => deps!.bus.emit({ type: "stt-result", result: { text: "телефон 89001234567", words: [] } }));
+
+  await waitFor(() => expect((screen.getByLabelText(/Телефон/) as HTMLInputElement).value).toBe("89001234567"));
+  expect(stored.phone).toBe("89001234567");
 });

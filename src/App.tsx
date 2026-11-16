@@ -9,6 +9,7 @@ import type { TurnMetrics } from "./lib/types";
 import { loadProfile, loadToken, saveProfile, saveToken } from "./lib/tokenStore";
 import { EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
 import { makeTools } from "./lib/tools";
+import { supervise } from "./lib/supervisor";
 import { ClientForm } from "./ClientForm";
 import { Recorder, fixtureFilename, toFixtureJson } from "./lib/recorder";
 import { Waterfall } from "./scene/Waterfall";
@@ -129,6 +130,7 @@ export function App() {
   }, [config, transport]);
 
   const sessionRef = useRef<VoiceSession | null>(null);
+  const unsuperviseRef = useRef<(() => void) | null>(null);
   /** The engine the last start attempt used, so its failure is worded for that engine. */
   const engineRef = useRef<Engine>("elevenlabs");
 
@@ -208,6 +210,13 @@ export function App() {
       const session = createSession(current, sessionDeps);
       sessionRef.current = session;
       await session.start();
+      unsuperviseRef.current?.();
+      unsuperviseRef.current = supervise({
+        bus,
+        profile: () => profileRef.current,
+        setProfile: updateProfile,
+        send: (text) => session.sendContextualUpdate(text),
+      });
       // Torn down mid-start: stop() then found nothing open yet, so the session is ours to close.
       if (generation !== generationRef.current) {
         await session.stop();
@@ -229,7 +238,7 @@ export function App() {
       void sessionRef.current?.stop();
       sessionRef.current = null;
     },
-    [sessionDeps],
+    [sessionDeps, bus, updateProfile],
   );
 
   return (
