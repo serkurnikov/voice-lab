@@ -54,10 +54,10 @@ test("each tool reports the facts it handed the agent", async () => {
   await h.call("update_form", { phone: "+7 900 123-45-67" });
   await h.call("book_appointment", { service_id: "oil", date: "2026-11-17", time: "10:30" });
 
-  expect(h.facts("search_services")).toEqual(expect.arrayContaining(["Замена масла", "Oil change", "2500 ₽", "30 min"]));
+  expect(h.facts("search_services")).toEqual(["Замена масла, Oil change: 2500 ₽, 30 min"]);
   expect(h.facts("find_slots")).toEqual(expect.arrayContaining(["2026-11-17", "10:30", "17:00"]));
   expect(h.facts("update_form")).toEqual(["+7 900 123-45-67"]);
-  expect(h.facts("book_appointment")).toEqual(expect.arrayContaining(["Замена масла", "2026-11-17", "10:30"]));
+  expect(h.facts("book_appointment")).toEqual(["Замена масла, Oil change: 2500 ₽, 30 min", "2026-11-17", "10:30"]);
 });
 
 test("a search that finds nothing still reports the call, with no facts", async () => {

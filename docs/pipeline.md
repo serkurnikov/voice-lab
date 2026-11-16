@@ -82,9 +82,20 @@ Three observers sit on the bus beside the scene; none of them is in the session.
   on the agent in the dashboard**; undeclared, the agent never calls them and only the
   supervisor fills the form.
 - [`annotate.ts`](../src/scene/annotate.ts) marks the agent's words in the transcript: a name or
-  number is a *fact* when the prompt's shop facts and price list or a `tool-result` back it
-  (same digits, compatible unit, not negated), and an *assumption* otherwise, as are hedge words.
-  It is a heuristic on text, not a check of the agent's reasoning.
+  number is a *fact* when the prompt's shop facts and price list or a `tool-result` back it, and
+  an *assumption* otherwise, as are hedge words. A fact line written `subject: values`
+  (`Замена масла, Oil change: 2500 ₽, 30 min`) binds its values to that subject, and a number
+  is checked as subject → field → value → unit:
+  - the subject is the service named in the same clause, else the same sentence, else the last
+    one named in the reply; with none named, every source is searched;
+  - the field is the unit: a price beside a service must be *that* service's price, and
+    "6 months" backs neither "6 лет" nor "6 минут";
+  - a day followed by a month name must match a known date in both; a phone's digits back only
+    a bare number; a number after "не"/"not" is never a fact, across a range too
+    ("не с 09:00 до 19:00").
+
+  It is a heuristic on text, not a check of the agent's reasoning: two services swapped inside
+  one clause still pass.
 
 ## Backup engine: Deepgram
 

@@ -18,6 +18,9 @@ export const SERVICES: Service[] = [
   { id: "ac", ru: "Заправка кондиционера", en: "A/C recharge", price: 3500, minutes: 40, aka: ["кондиционер", "кондей", "холодит", "conditioner", "ac", "cooling"] },
 ];
 
+/** One service as a fact line; the subject before the colon is what its price and time belong to. */
+export const serviceFact = (s: Service) => `${s.ru}, ${s.en}: ${s.price} ₽, ${s.minutes} min`;
+
 // A crude stem: Russian endings vary ("масло", "масла", "шина", "шины"), so words match on
 // their first letters, at most four and never the last one.
 const stem = (w: string) => (w.length <= 3 ? w : w.slice(0, Math.min(4, w.length - 1)));

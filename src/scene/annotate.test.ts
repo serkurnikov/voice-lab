@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import { PROMPT_FACTS } from "../lib/persona";
 import { annotate, type Mark } from "./annotate";
 
 const OIL = ["Замена масла", "Oil change", "2500", "30"];
@@ -54,4 +55,30 @@ test("a number the facts give in another unit does not back a price or a duratio
   const WARRANTY = ["Warranty on work: 6 months or 10 000 km"];
   expect(marked("Займёт 6 минут и стоит 6 рублей.", WARRANTY, "assumption")).toEqual(["6 минут", "6 рублей"]);
   expect(marked("Гарантия 6 месяцев или 10 000 км.", WARRANTY, "fact")).toEqual(["6", "10 000"]);
+});
+
+test("a number is a fact only for the subject, unit and date its source gives it", () => {
+  const KNOWN = [...PROMPT_FACTS, "+7 900 123-45-67", "2026-11-17", "10:30"];
+  for (const [text, wrong] of [
+    ["Замена масла стоит 4000 ₽.", "4000 ₽"],
+    ["Замена масла стоит 4000.", "4000"],
+    ["С вас 45 рублей.", "45 рублей"],
+    ["Работаем не с 09:00 до 19:00.", "09:00"],
+    ["Работаем не с 09:00 до 19:00.", "19:00"],
+    ["Гарантия 6 лет.", "6"],
+    ["Ждём вас 17 декабря.", "17"],
+    ["We expect you on December 17.", "17"],
+  ] as const) {
+    expect(marked(text, KNOWN, "fact"), text).not.toContain(wrong);
+    expect(marked(text, KNOWN, "assumption"), text).toContain(wrong);
+  }
+  // The true counterpart of each trap still reads as fact.
+  for (const [text, right] of [
+    ["Замена масла стоит 2500 ₽, а замена тормозных колодок — 4000 ₽.", ["2500 ₽", "4000 ₽"]],
+    ["2500 ₽ за замену масла и 1500 ₽ за компьютерную диагностику.", ["2500 ₽", "1500 ₽"]],
+    ["Замена масла. Это 2500 ₽ и 30 минут, приезжайте в 10:30.", ["2500 ₽", "30 минут", "10:30"]],
+    ["Работаем с 09:00 до 19:00.", ["09:00", "19:00"]],
+    ["Гарантия 6 месяцев.", ["6"]],
+    ["Ждём вас 17 ноября, ваш номер 900 123 45 67.", ["17", "900 123", "45", "67"]],
+  ] as const) expect(marked(text, KNOWN, "fact"), text).toEqual(expect.arrayContaining([...right]));
 });

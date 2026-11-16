@@ -6,7 +6,7 @@
  * opens — a running conversation keeps the role it started with, and the agent has to
  * allow the override or the connection is refused outright.
  */
-import { SERVICES } from "./catalog";
+import { serviceFact, SERVICES } from "./catalog";
 
 export const TOOL_NAMES = ["search_services", "find_slots", "book_appointment", "update_form"] as const;
 
@@ -25,7 +25,7 @@ export const SHOP_FACTS: string[] = [
 ];
 
 /** The price list, stated in the prompt so prices are facts even when no tool is called. */
-export const SERVICE_FACTS: string[] = SERVICES.map((s) => `${s.ru}, ${s.en}: ${s.price} ₽, ${s.minutes} min`);
+export const SERVICE_FACTS: string[] = SERVICES.map(serviceFact);
 
 /** Everything the transcript may mark as a fact before any tool runs. */
 export const PROMPT_FACTS: string[] = [...SHOP_FACTS, ...SERVICE_FACTS];

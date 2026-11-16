@@ -1,4 +1,4 @@
-import { searchServices, SERVICES } from "./catalog";
+import { searchServices, serviceFact, SERVICES } from "./catalog";
 import { applyPatch, FIELDS, isIsoDate, isPast, missingRequired, type ClientProfile } from "./formModel";
 import type { ClientFunction } from "./pipeline/session";
 import type { PipelineEvent } from "./types";
@@ -38,8 +38,8 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
       description: "Find car services, prices in rubles and duration by what the customer asks for.",
       parameters: { type: "object", properties: { query: str }, required: ["query"] },
       run: ({ query }) => {
-        const found = searchServices(String(query ?? "")).map(({ id, ru, en, price, minutes }) => ({ id, ru, en, price, minutes }));
-        return told("search_services", found.flatMap((s) => [s.ru, s.en, `${s.price} ₽`, `${s.minutes} min`]), json(found));
+        const found = searchServices(String(query ?? ""));
+        return told("search_services", found.map(serviceFact), json(found.map(({ id, ru, en, price, minutes }) => ({ id, ru, en, price, minutes }))));
       },
     },
     {
@@ -72,7 +72,7 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
         if (!HOURS.includes(String(time)) || booked.has(slot)) return json({ error: "slot not free" });
         booked.add(slot);
         setProfile(applyPatch(profile(), { service: service.ru, date: slot }));
-        return told("book_appointment", [service.ru, service.en, `${service.price} ₽`, date, time], json({ ok: true, service: service.ru, at: slot }));
+        return told("book_appointment", [serviceFact(service), date, time], json({ ok: true, service: service.ru, at: slot }));
       },
     },
     {
