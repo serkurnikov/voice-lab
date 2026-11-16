@@ -111,8 +111,13 @@ export class DeepgramSession implements VoiceSession {
     this.running = true;
   }
 
+  // Deepgram has no contextual update; UpdatePrompt appends to the prompt, which is the same thing.
+  sendContextualUpdate(text: string): void {
+    this.send({ type: "UpdatePrompt", prompt: text });
+  }
+
   /** InjectUserMessage. */
-  sendText(text: string): void {
+  sendUserMessage(text: string): void {
     this.send({ type: "InjectUserMessage", content: text });
   }
 

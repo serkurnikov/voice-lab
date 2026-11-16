@@ -22,6 +22,10 @@ export interface VoiceSession {
   readonly isRunning: boolean;
   /** The spectrum of the audio playing right now, or null when nothing is. */
   mouthSpectrum(): Uint8Array | null;
+  /** Silent context the agent takes into account from its next reply on. */
+  sendContextualUpdate(text: string): void;
+  /** A typed user turn: the agent answers it right away. */
+  sendUserMessage(text: string): void;
   start(): Promise<void>;
   stop(): Promise<void>;
 }

@@ -9,6 +9,8 @@ import { TurnModel } from "../../scene/turnModel";
 const handlers: Record<string, (arg?: unknown) => void> = {};
 /** What the session asked the SDK for, so the handshake itself can be asserted on. */
 let startOptions: Record<string, unknown> = {};
+/** What the session pushed into the live conversation after the handshake. */
+const sent: [string, string][] = [];
 
 vi.mock("@elevenlabs/client", () => ({
   Conversation: {
@@ -19,6 +21,8 @@ vi.mock("@elevenlabs/client", () => ({
       }
       return {
         endSession: async () => {},
+        sendContextualUpdate: (text: string) => sent.push(["context", text]),
+        sendUserMessage: (text: string) => sent.push(["user", text]),
         getOutputVolume: () => 0,
         getOutputByteFrequencyData: () => new Uint8Array(1024),
       };
@@ -136,4 +140,17 @@ test("end to end is the turn's wall-clock time, not the sum of overlapping stage
   at(2000, () => handlers.onModeChange?.({ mode: "listening" } as never));
 
   expect(turns[0].totalMs).toBe(2000);
+});
+
+test("context and typed turns go through the SDK's own methods, each to its own", async () => {
+  sent.length = 0;
+  const { session } = await harness();
+
+  session.sendContextualUpdate("Customer name: Anna.");
+  session.sendUserMessage("Book me for tomorrow.");
+
+  expect(sent).toEqual([
+    ["context", "Customer name: Anna."],
+    ["user", "Book me for tomorrow."],
+  ]);
 });

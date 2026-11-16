@@ -249,6 +249,14 @@ export class AgentSession implements VoiceSession {
     this.vadOpen = false;
   }
 
+  sendContextualUpdate(text: string): void {
+    this.conversation?.sendContextualUpdate(text);
+  }
+
+  sendUserMessage(text: string): void {
+    this.conversation?.sendUserMessage(text);
+  }
+
   async stop(): Promise<void> {
     this.running = false;
     this.speaking = false;
