@@ -16,6 +16,8 @@ export interface SessionDeps {
    */
   onEnded: (reason: "user" | "agent" | "error", message?: string) => void;
   functions?: ClientFunction[];
+  /** What the page already knows about the customer, read at start and added to the role. */
+  briefing?: () => string;
 }
 
 /** A function the agent may call; it runs here in the page, not on the engine's side. */
@@ -39,4 +41,12 @@ export interface VoiceSession {
   sendUserMessage(text: string): void;
   start(): Promise<void>;
   stop(): Promise<void>;
+}
+
+/**
+ * The role plus what is already on file. It goes into the prompt rather than a contextual
+ * update because the greeting is generated before any update can arrive.
+ */
+export function withBriefing(role: string, briefing = ""): string {
+  return briefing ? `${role}\n\n${briefing}` : role;
 }

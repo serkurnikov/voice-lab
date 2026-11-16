@@ -102,9 +102,10 @@ afterEach(() => {
 
 interface HarnessOptions {
   functions?: ClientFunction[];
+  briefing?: () => string;
 }
 
-async function harness({ functions }: HarnessOptions = {}) {
+async function harness({ functions, briefing }: HarnessOptions = {}) {
   const bus = new EventBus();
   const events: PipelineEvent[] = [];
   bus.on((e) => events.push(e));
@@ -118,6 +119,7 @@ async function harness({ functions }: HarnessOptions = {}) {
     onTurn: (m) => turns.push(m),
     onEnded: (reason, message) => ended.push({ reason, message }),
     functions,
+    briefing,
     audio: () => audio as unknown as DeepgramAudio,
   });
 
@@ -182,6 +184,13 @@ test("Settings carry the role, the client functions and English-only managed mod
   expect(settings.agent.think.functions[0].endpoint, "no endpoint means client-side").toBeUndefined();
   expect(settings.agent.speak.provider.model).toMatch(/-en$/);
   expect(settings.agent.listen.provider.language).toBe("en");
+});
+
+test("what is on file about the customer is part of the prompt in Settings", async () => {
+  const { socket } = await harness({ briefing: () => "Returning customer: Anna" });
+
+  const settings = socket.json().find((m) => m.type === "Settings");
+  expect(settings.agent.think.prompt).toBe(`${DEEPGRAM_PROMPT}\n\nReturning customer: Anna`);
 });
 
 test("microphone audio waits for SettingsApplied", async () => {

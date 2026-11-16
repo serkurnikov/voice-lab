@@ -7,7 +7,7 @@ import { createTransport, WorkerError } from "./lib/transport";
 import { loadConfig } from "./lib/config";
 import type { TurnMetrics } from "./lib/types";
 import { loadProfile, loadToken, saveProfile, saveToken } from "./lib/tokenStore";
-import { EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
+import { briefing, EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
 import { makeTools } from "./lib/tools";
 import { supervise } from "./lib/supervisor";
 import { ClientForm } from "./ClientForm";
@@ -158,6 +158,7 @@ export function App() {
         setEndedBy(reason);
       },
       functions: makeTools({ profile: () => profileRef.current, setProfile: updateProfile, report: (e) => bus.emit(e) }),
+      briefing: () => briefing(profileRef.current),
     };
   }, [bus, transport, recorder, updateProfile]);
 

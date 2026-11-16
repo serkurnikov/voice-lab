@@ -32,7 +32,7 @@ vi.mock("@elevenlabs/client", () => ({
 
 afterEach(() => vi.restoreAllMocks());
 
-async function harness() {
+async function harness(briefing?: () => string) {
   const bus = new EventBus();
   const events: PipelineEvent[] = [];
   bus.on((e) => events.push(e));
@@ -44,6 +44,7 @@ async function harness() {
     transport: { agentToken: async () => ({ token: "t", agentId: "a" }) } as never,
     onTurn: (m) => turns.push(m),
     onEnded: () => {},
+    briefing,
   });
 
   await session.start();
@@ -104,6 +105,14 @@ test("the role is sent with the handshake, not left to the agent's own prompt", 
     | { agent?: { prompt?: { prompt?: string } } }
     | undefined;
   expect(overrides?.agent?.prompt?.prompt).toBe(SYSTEM_PROMPT);
+});
+
+test("what is on file about the customer rides in the prompt, so the greeting already knows them", async () => {
+  await harness(() => "Returning customer: Анна");
+
+  const prompt = (startOptions.overrides as { agent: { prompt: { prompt: string } } }).agent.prompt.prompt;
+  expect(prompt.startsWith(SYSTEM_PROMPT)).toBe(true);
+  expect(prompt).toContain("Returning customer: Анна");
 });
 
 test("the token counter starts over on every turn instead of growing for the whole call", async () => {

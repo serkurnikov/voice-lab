@@ -99,6 +99,15 @@ test("what the customer says reaches the form even when the agent calls no tool"
   expect(stored.phone).toBe("89001234567");
 });
 
+test("the agent is told at start what the store already knows about the customer", async () => {
+  token = "vibe_test";
+  render(<App />);
+  await waitFor(() => expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("Анна"));
+  await startConversation();
+
+  expect(deps!.briefing!()).toMatch(/Анна.*Kia Rio/);
+});
+
 test("the form on screen is in English whatever language the agent speaks", async () => {
   render(<App />);
   await waitFor(() => expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe("Анна"));

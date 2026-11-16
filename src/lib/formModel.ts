@@ -78,3 +78,16 @@ export function parseProfile(raw: string): ClientProfile {
     return EMPTY_PROFILE;
   }
 }
+
+/** The fields already filled, as a note for the agent; empty when nothing is known. */
+export function briefing(p: ClientProfile): string {
+  const known = FIELDS.filter((k) => p[k]).map((k) => `${k}: ${p[k]}`);
+  return known.length
+    ? `Returning customer, already on file: ${known.join("; ")}. Greet them by name and do not ask for these again.`
+    : "";
+}
+
+/** The form as a text file, one labelled line per field, empty ones included so gaps show. */
+export function formText(p: ClientProfile, lang: Lang): string {
+  return FIELDS.map((k) => `${LABELS[lang][k]}: ${p[k]}`).join("\n") + "\n";
+}

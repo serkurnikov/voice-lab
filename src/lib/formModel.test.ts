@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { applyPatch, EMPTY_PROFILE, parseProfile, missingRequired, validate, type ClientProfile } from "./formModel";
+import { applyPatch, briefing, EMPTY_PROFILE, formText, parseProfile, missingRequired, validate, type ClientProfile } from "./formModel";
 
 const ok: ClientProfile = {
   name: "Иван", phone: "+7 (916) 123-45-67", car: "Lada Vesta", plate: "А123ВС77", service: "ТО", date: "2026-03-14",
@@ -89,4 +89,18 @@ describe("parseProfile", () => {
       expect(parseProfile(raw)).toEqual(EMPTY_PROFILE);
     }
   });
+});
+
+test("the briefing names what is on file and is empty for a stranger", () => {
+  expect(briefing(EMPTY_PROFILE)).toBe("");
+  const b = briefing({ ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio" });
+  expect(b).toContain("name: Анна");
+  expect(b).toContain("car: Kia Rio");
+  expect(b).not.toContain("phone");
+});
+
+test("the form as text keeps every field in order, the empty ones too", () => {
+  expect(formText({ ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio" }, "en")).toBe(
+    "Name: Анна\nPhone: \nCar: Kia Rio\nPlate number: \nService: \nVisit date: \n",
+  );
 });
