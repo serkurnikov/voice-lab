@@ -330,7 +330,7 @@ export function App() {
 
           <StageBreakdown metrics={metrics} />
 
-          <ClientForm value={profile} lang={engine === "deepgram" ? "en" : "ru"} onChange={updateProfile} />
+          <ClientForm value={profile} lang="en" onChange={updateProfile} />
         </div>
       </section>
 

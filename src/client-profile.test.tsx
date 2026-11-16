@@ -41,15 +41,15 @@ afterEach(() => {
 test("after a reload the form comes back filled from the store", async () => {
   render(<App />);
 
-  await waitFor(() => expect((screen.getByLabelText(/Имя/) as HTMLInputElement).value).toBe("Анна"));
-  expect((screen.getByLabelText(/Автомобиль/) as HTMLInputElement).value).toBe("Kia Rio");
+  await waitFor(() => expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("Анна"));
+  expect((screen.getByLabelText(/Car/) as HTMLInputElement).value).toBe("Kia Rio");
 });
 
 test("every edit is written to the store, so the next reload sees it", async () => {
   render(<App />);
-  await waitFor(() => expect((screen.getByLabelText(/Имя/) as HTMLInputElement).value).toBe("Анна"));
+  await waitFor(() => expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("Анна"));
 
-  fireEvent.change(screen.getByLabelText(/Телефон/), { target: { value: "+7 900 123-45-67" } });
+  fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "+7 900 123-45-67" } });
 
   expect(stored).toEqual({ ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio", phone: "+7 900 123-45-67" });
 });
@@ -67,7 +67,7 @@ test("the agent's update_form lands in the form on screen and in the store", asy
     await run("update_form", { plate: "А123ВС77" });
   });
 
-  expect((screen.getByLabelText(/Телефон/) as HTMLInputElement).value).toBe("+7 900 123-45-67");
+  expect((screen.getByLabelText(/Phone/) as HTMLInputElement).value).toBe("+7 900 123-45-67");
   expect(stored).toMatchObject({ name: "Анна", phone: "+7 900 123-45-67", plate: "А123ВС77" });
 });
 
@@ -79,6 +79,16 @@ test("what the customer says reaches the form even when the agent calls no tool"
 
   act(() => deps!.bus.emit({ type: "stt-result", result: { text: "телефон 89001234567", words: [] } }));
 
-  await waitFor(() => expect((screen.getByLabelText(/Телефон/) as HTMLInputElement).value).toBe("89001234567"));
+  await waitFor(() => expect((screen.getByLabelText(/Phone/) as HTMLInputElement).value).toBe("89001234567"));
   expect(stored.phone).toBe("89001234567");
+});
+
+test("the form on screen is in English whatever language the agent speaks", async () => {
+  render(<App />);
+  await waitFor(() => expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe("Анна"));
+  expect(screen.getByLabelText(/^Phone/)).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText(/^Phone/), { target: { value: "123" } });
+
+  expect(screen.getByRole("alert").textContent).toBe("Phone: 10 to 15 digits");
 });
