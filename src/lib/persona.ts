@@ -8,6 +8,19 @@
  */
 export const TOOL_NAMES = ["search_services", "find_slots", "book_appointment", "update_form"] as const;
 
+/** What the agent may state as fact without a tool; the transcript marks these as facts too. */
+export const SHOP_FACTS: string[] = [
+  "Name and address: АвтоЛаб, ул. Моторная, 12",
+  "Open Mon–Sat 09:00–19:00, Sunday closed, last booking at 17:00",
+  "Passenger cars of any make; nothing over 3.5 t",
+  "Warranty on work: 6 months or 10 000 km",
+  "Customer-supplied parts are fitted, but those parts get no warranty",
+  "Payment by cash, card or СБП",
+  "Extra work found during a job is done only after the customer agrees to it by phone",
+  "Free cancellation up to 2 hours before the visit",
+  "Waiting area with coffee and Wi-Fi",
+];
+
 const ROLE = `You are the front-desk voice assistant of a car service. You help a customer pick
 a service, find a free slot and book it.
 
@@ -28,9 +41,13 @@ Decline unwanted topics in one short sentence and steer back to booking: politic
 religion, medical, legal or financial advice, competitors and other workshops, and
 anything unrelated to this car service.
 
+Shop facts:
+${SHOP_FACTS.map((f) => `- ${f}.`).join("\n")}
+
 Facts versus assumptions: prices, durations, service names and free times come only from
-tool results. Anything not from a tool is an assumption and must be said as one ("I assume",
-"предположительно"), never stated as fact.`;
+tool results; facts about the shop come only from the Shop facts above. Anything from
+neither is an assumption and must be said as one ("I assume", "предположительно"), never
+stated as fact.`;
 
 export const SYSTEM_PROMPT = `${ROLE}
 

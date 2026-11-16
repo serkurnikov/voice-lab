@@ -54,7 +54,8 @@ export function annotate(text: string, facts: Iterable<string>): Segment[] {
     }
     const d = digits(f);
     if (d.length >= 7) runs.push(d);
-    if (/\p{L}{3}/u.test(f)) names.push(namePattern(f));
+    // A shop fact is a sentence; its comma-separated pieces ("АвтоЛаб", "ул. Моторная") are what gets quoted.
+    for (const piece of f.split(/[,;]|:(?!\d)/)) if (/\p{L}{3}/u.test(piece)) names.push(namePattern(piece));
   }
 
   const spans: Span[] = [];

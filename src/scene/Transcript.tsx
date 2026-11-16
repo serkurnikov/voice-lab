@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { EventBus } from "../lib/events";
+import { SHOP_FACTS } from "../lib/persona";
 import { annotate } from "./annotate";
 
 /**
@@ -19,7 +20,8 @@ export function Transcript({ bus }: { bus: EventBus }) {
   // of creating a row each.
   const openReply = useRef<HTMLElement | null>(null);
   const openText = useRef("");
-  const facts = useRef(new Set<string>());
+  // The prompt states the shop facts outright, so they are known before any tool runs.
+  const facts = useRef(new Set<string>(SHOP_FACTS));
 
   useEffect(() => {
     const list = listRef.current;

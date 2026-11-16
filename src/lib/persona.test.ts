@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEEPGRAM_PROMPT, SYSTEM_PROMPT, TOOL_NAMES } from "./persona";
+import { DEEPGRAM_PROMPT, SHOP_FACTS, SYSTEM_PROMPT, TOOL_NAMES } from "./persona";
 
 describe("persona", () => {
   it("is a car-service desk that names every client tool", () => {
@@ -31,8 +31,16 @@ describe("persona", () => {
         expect(prompt).toContain(topic);
     });
 
+    it(`states the shop facts on ${engine}`, () => {
+      expect(prompt).toMatch(/Shop facts:/);
+      for (const fact of SHOP_FACTS) expect(prompt).toContain(fact);
+      for (const core of ["АвтоЛаб", "Моторная, 12", "09:00–19:00", "17:00", "3.5 t", "10 000 km", "no warranty", "СБП", "agrees to it by phone", "2 hours", "Wi-Fi"])
+        expect(prompt).toContain(core);
+    });
+
     it(`keeps facts to tool results and marks assumptions on ${engine}`, () => {
       expect(prompt).toMatch(/come only from\s+tool results/);
+      expect(prompt).toMatch(/facts about the shop come only from the Shop facts/);
       expect(prompt).toMatch(/must be said as one/);
       expect(prompt).toMatch(/I assume/);
     });

@@ -41,6 +41,17 @@ test("agent lines mark tool data as fact and guesses as assumption, with a legen
   expect(container.querySelector(".transcript-legend .mark-assumption")?.textContent).toMatch(/assumption/);
 });
 
+test("a reply quoting the shop's hours is marked as fact before any tool runs", () => {
+  const bus = new EventBus();
+  const { container } = render(<Transcript bus={bus} />);
+
+  act(() => bus.emit({ type: "agent-reply", text: "АвтоЛаб открыт с понедельника по субботу, 09:00–19:00.", at: 0 }));
+
+  const text = (sel: string) => [...container.querySelectorAll(`.line-text ${sel}`)].map((n) => n.textContent);
+  expect(text(".mark-fact")).toEqual(["АвтоЛаб", "09:00", "19:00"]);
+  expect(text(".mark-assumption")).toEqual([]);
+});
+
 // jsdom's Blob has no .text(); FileReader is the jsdom-native way in.
 const readText = (b: Blob) =>
   new Promise<string>((done) => {

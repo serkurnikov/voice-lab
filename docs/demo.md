@@ -52,6 +52,13 @@ is not in the catalog: the agent says so, or marks any figure with "I assume" /
 «предположительно» — the hedge and any number no tool returned are highlighted as
 **assumption**. The legend in the conversation header explains the two colours.
 
+> RU: «Во сколько вы работаете и какая гарантия?»
+> EN: "What are your hours, and what warranty do you give?"
+
+Hours and warranty come from the prompt's shop facts
+([`SHOP_FACTS`](../src/lib/persona.ts)), so "09:00–19:00" and "10 000 km" show as
+**fact** without any tool call.
+
 ## 5. Reload restores the form
 
 End the conversation and reload the page. The form comes back filled from the browser's
