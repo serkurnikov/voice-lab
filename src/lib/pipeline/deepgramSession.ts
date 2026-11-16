@@ -355,7 +355,10 @@ export class DeepgramSession implements VoiceSession {
         (this.metrics.stages[this.stage] ?? 0) + (now - this.stageAt);
       this.intervals.push([this.stageAt, now]);
       if (next === "capture") {
-        this.deps.onTurn({ ...this.metrics, totalMs: coveredMs(this.intervals) });
+        const metrics = { ...this.metrics, totalMs: coveredMs(this.intervals) };
+        this.deps.onTurn(metrics);
+        // The supervisor hangs its "form still missing" nudge on this.
+        this.deps.bus.emit({ type: "turn-end", at: now, metrics });
         this.resetTurn();
       }
     }

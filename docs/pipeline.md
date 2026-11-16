@@ -74,8 +74,9 @@ Three observers sit on the bus beside the scene; none of them is in the session.
   puts it in the form, so a mis-heard value never lands. A date already gone is never filled. A name, phone
   or plate the customer said themselves waits the same way: it is filled once the agent repeats
   it, in any wording, and the customer says yes. It sends, once each, a stop-driving hint for
-  unsafe symptoms and a correction when the agent claims a booking with the form incomplete. The
-  "form still missing" nudge hangs on `turn-end`, which no session emits yet, so it never fires.
+  unsafe symptoms and a correction when the agent claims a booking with the form incomplete. Both
+  sessions emit `turn-end` where they report a turn (listening resumes), and on it the supervisor
+  sends the "form still missing" nudge, once per change in what is missing.
 - [`tools.ts`](../src/lib/tools.ts) is the one tool list for both engines: `search_services`,
   `find_slots`, `book_appointment`, `update_form`. Each run emits `tool-result` with the facts it
   handed the agent. **On ElevenLabs they run only if the same names are declared as client tools

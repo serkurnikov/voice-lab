@@ -304,6 +304,7 @@ test("the user talking over the agent drops queued audio and ends the reply", as
   expect(audio.flushed, "queued agent audio would talk over the user").toBe(1);
   expect(lanes(events, "stage-end")).toContain("tts");
   expect(turns, "the interrupted turn is still reported").toHaveLength(1);
+  expect(events.filter((e) => e.type === "turn-end"), "on the bus too, for the supervisor's nudge").toHaveLength(1);
 });
 
 test("a reply ends when playback drains, not when the server finishes sending", async () => {

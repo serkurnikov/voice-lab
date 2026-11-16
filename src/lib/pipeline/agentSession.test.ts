@@ -4,6 +4,8 @@ import { FIRST_MESSAGE, SYSTEM_PROMPT } from "../persona";
 import { EventBus } from "../events";
 import type { PipelineEvent, TurnMetrics } from "../types";
 import { TurnModel } from "../../scene/turnModel";
+import { EMPTY_PROFILE } from "../formModel";
+import { supervise } from "../supervisor";
 
 /** Captures the callbacks the SDK would have received, so they can be fired by hand. */
 const handlers: Record<string, (arg?: unknown) => void> = {};
@@ -49,7 +51,7 @@ async function harness(briefing?: () => string, greeting?: () => string) {
   });
 
   await session.start();
-  return { session, events, turns };
+  return { session, bus, events, turns };
 }
 
 const lanes = (events: PipelineEvent[], type: "stage-start" | "stage-end") =>
@@ -84,6 +86,19 @@ test("a turn is reported when listening resumes", async () => {
   handlers.onModeChange?.({ mode: "listening" } as never);
 
   expect(turns.length, "returning to listening ends the turn").toBe(1);
+});
+
+test("the end of a turn reaches the supervisor, which tells the agent what the form still lacks", async () => {
+  const { session, bus, events } = await harness();
+  const profile = { ...EMPTY_PROFILE, name: "Анна" };
+  supervise({ bus, profile: () => profile, setProfile: () => {}, send: (t) => session.sendContextualUpdate(t) });
+
+  handlers.onModeChange?.({ mode: "speaking" } as never);
+  expect(sent).not.toContainEqual(["context", expect.stringMatching(/^Form still missing: phone, car, service/)]);
+  handlers.onModeChange?.({ mode: "listening" } as never);
+
+  expect(events.filter((e) => e.type === "turn-end")).toHaveLength(1);
+  expect(sent).toContainEqual(["context", expect.stringMatching(/^Form still missing: phone, car, service/)]);
 });
 
 test("a disconnect closes every open lane", async () => {
