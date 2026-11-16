@@ -71,12 +71,14 @@ function run(start: ClientProfile = EMPTY_PROFILE) {
   const bus = new EventBus();
   let p = start;
   const sent: string[] = [];
-  supervise({ bus, profile: () => p, setProfile: (n) => (p = n), send: (t) => sent.push(t) });
+  const hungUp = { count: 0 };
+  supervise({ bus, profile: () => p, setProfile: (n) => (p = n), send: (t) => sent.push(t), hangUp: () => (hungUp.count += 1) });
   const say = (text: string) => bus.emit({ type: "stt-result", result: { text, words: [] } });
   const endTurn = () => bus.emit({ type: "turn-end", at: 0, metrics: {} as never });
   const agent = (text: string) => bus.emit({ type: "agent-reply", text, at: 0 });
   const stream = (text: string) => text.split(/(?<= )/).forEach((token) => bus.emit({ type: "llm-token", token, at: 0 }));
-  return { say, agent, stream, endTurn, sent, profile: () => p };
+  const heard = () => bus.emit({ type: "stage-start", stage: "capture", at: 0 });
+  return { say, agent, stream, endTurn, heard, hungUp, sent, profile: () => p };
 }
 
 test("what the customer says waits for the agent to repeat it and the customer to say yes", () => {
@@ -206,4 +208,28 @@ test("a form with no date is not closed", () => {
   const s = run({ name: "Сергей", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "" });
   s.say("ага");
   expect(s.sent).toEqual([]);
+});
+
+test("the call is hung up once the goodbye after the closing hint has been heard, and only then", () => {
+  const s = run({ name: "Сергей", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "" });
+  s.agent("До свидания? Нет, сначала дата. Записываю дату: 17.11.2026 10:30. Верно?");
+  s.heard();
+  expect(s.hungUp.count).toBe(0);
+  s.say("да");
+  s.agent("Отлично, что-нибудь ещё?");
+  s.heard();
+  expect(s.hungUp.count).toBe(0);
+  s.stream("Вы записаны на замену масла 17 ноября в 10:30. До свидания!");
+  expect(s.hungUp.count).toBe(0);
+  s.heard();
+  expect(s.hungUp.count).toBe(1);
+  s.heard();
+  expect(s.hungUp.count).toBe(1);
+});
+
+test("a goodbye before the form is complete does not hang up", () => {
+  const s = run();
+  s.agent("Хорошо, до свидания.");
+  s.heard();
+  expect(s.hungUp.count).toBe(0);
 });

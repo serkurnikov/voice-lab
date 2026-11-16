@@ -230,6 +230,15 @@ export function App() {
         profile: () => profileRef.current,
         setProfile: updateProfile,
         send: (text) => session.sendContextualUpdate(text),
+        hangUp: () => {
+          if (sessionRef.current !== session) return;
+          unsuperviseRef.current?.();
+          void session.stop().then(() => {
+            setTalking(false);
+            setEndedBy("agent");
+            saveRecordingRef.current?.();
+          });
+        },
       });
       setTalking(true);
     } catch (e) {

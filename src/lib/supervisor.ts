@@ -93,11 +93,15 @@ const UNSAFE: [string, RegExp][] = [
 const CLAIMS_BOOKED =
   /вы\s+записаны|запись\s+(?:подтверждена|оформлена)|я\s+(?:вас\s+)?записал|you(?:'re| are)\s+(?:all\s+)?(?:booked|set)\b|(?:booking|appointment)\s+is\s+(?:confirmed|made|booked)/iu;
 
+const GOODBYE = /до\s+свидания|всего\s+(?:доброго|хорошего)|хорошего\s+дня|до\s+встречи|goodbye|bye\b|have\s+a\s+(?:good|nice|great)\s+day/iu;
+
 interface Deps {
   bus: EventBus;
   profile: () => ClientProfile;
   setProfile: (p: ClientProfile) => void;
   send: (text: string) => void;
+  /** Ends the call from our side; the agent has no end_call tool on the dashboard. */
+  hangUp?: () => void;
 }
 
 const squash = (s: string) => s.replace(/\s/g, "").toUpperCase().replace(/[A-Z]/g, (c) => CYRILLIC[c] ?? c);
@@ -116,7 +120,7 @@ function echoes(reply: string, field: keyof ClientProfile, value: string): boole
  * own words once the agent repeats them — and steers the model with what is left. Works whether
  * or not the model ever calls update_form.
  */
-export function supervise({ bus, profile, setProfile, send }: Deps): () => void {
+export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () => void {
   let last: string | null = null;
   // The value just read back waits for the customer's yes; a mis-heard read-back never reaches the form.
   let pending: Partial<ClientProfile> | null = null;
@@ -126,6 +130,10 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
   let streamed = "";
   // The answer to "как к вам обращаться?" is often the bare name, which no phrase pattern catches.
   let askedName = false;
+  // After the closing hint, the reply that says goodbye is the last; the line drops once it is heard.
+  let closed = false;
+  let farewell = false;
+  let hungUp = false;
   const sent = new Set<string>();
   // The same hint twice reads to the model as insistence.
   const hint = (key: string, text: string) => {
@@ -135,6 +143,7 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
 
   const reply = (text: string) => {
     streamed = "";
+    if (closed && GOODBYE.test(text)) farewell = true;
     askedName = ASKS_NAME.test(text);
     const heard = readBacks(text);
     const fields = Object.keys(heard) as (keyof ClientProfile)[];
@@ -154,6 +163,7 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
   const closeIfComplete = () => {
     const p = profile();
     if (!p.date.trim() || nudge(p)) return;
+    closed = true;
     hint(
       `done:${p.name}|${p.phone}|${p.car}|${p.service}|${p.date}`,
       `The booking is recorded: ${p.service} for ${p.name}, ${p.car}, on ${p.date}, phone ${p.phone}. Tell the customer in one sentence what they are booked for, say goodbye, and ask nothing more.`,
@@ -162,6 +172,14 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
 
   const off = bus.on((e) => {
     if (e.type === "llm-token") streamed += e.token;
+    else if (e.type === "stage-start" && e.stage === "capture") {
+      // Capture reopens only once the reply has finished playing, so the goodbye is not cut off.
+      if (streamed.trim()) reply(streamed);
+      if (farewell && !hungUp && hangUp) {
+        hungUp = true;
+        hangUp();
+      }
+    }
     else if (e.type === "agent-reply") reply(e.text);
     else if (e.type === "stt-result") {
       const text = e.result.text;
