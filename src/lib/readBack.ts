@@ -25,6 +25,8 @@ const LABELS: [RegExp, Field][] = [
 const NO = new Set(["no", "not", "nope", "wrong", "incorrect", "t", "нет", "не", "неверно", "неправильно"]);
 // "да, но телефон другой" corrects something else; the read-back value stays.
 const BUT = new Set(["but", "except", "но", "кроме"]);
+// "да, не сомневайтесь" and "no problem" reassure; the negation in them is not an answer.
+const REASSURES = new Set(["сомневайтесь", "сомневайся", "вопрос", "против", "волнуйтесь", "переживайте", "беспокойтесь", "problem", "doubt", "worries"]);
 
 const L = "АВЕКМНОРСТУХ";
 const LATIN = "ABEKMHOPCTYX";
@@ -148,5 +150,5 @@ export function accepts(text: string): boolean {
 /** True when the customer's answer rejects what was just read back. */
 export function rejects(text: string): boolean {
   const words = text.toLowerCase().match(/\p{L}+/gu) ?? [];
-  return words.some((w) => NO.has(w)) && !words.some((w) => BUT.has(w));
+  return words.some((w, i) => NO.has(w) && !REASSURES.has(words[i + 1])) && !words.some((w) => BUT.has(w));
 }

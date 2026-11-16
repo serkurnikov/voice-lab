@@ -58,6 +58,11 @@ test("a yes is a yes only without a no in it", () => {
   for (const t of ["нет", "да нет, не так", "no", "я не знаю", ""]) expect(accepts(t), t).toBe(false);
 });
 
+test("a negation that only reassures does not turn a yes into a no", () => {
+  for (const t of ["да, не сомневайтесь", "да, не вопрос", "yes, no problem", "верно, не против"]) expect(accepts(t), t).toBe(true);
+  for (const t of ["да, не так", "не вопрос", "да нет, не сомневайтесь"]) expect(accepts(t), t).toBe(false);
+});
+
 test("a date read back that is already gone is not filled", () => {
   const now = new Date(2026, 10, 16, 12);
   expect(readBacks("Записываю дату: 10.11.2026 в 10:00. Верно?", now)).toEqual({});
