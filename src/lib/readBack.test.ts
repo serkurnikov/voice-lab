@@ -1,5 +1,9 @@
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { accepts, readBacks, rejects } from "./readBack";
+
+// The dates below are fixed; without a fixed clock they turn into past dates and are refused.
+beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-16T09:00:00") }));
+afterEach(() => vi.useRealTimers());
 
 test("each label lands in its field, in either language", () => {
   expect(readBacks("Записываю имя: Анна. Верно?")).toEqual({ name: "Анна" });

@@ -1,7 +1,11 @@
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { EventBus } from "./events";
 import { EMPTY_PROFILE, type ClientProfile } from "./formModel";
 import { extractFields, nudge, supervise } from "./supervisor";
+
+// The dates below are fixed; without a fixed clock they turn into past dates and are refused.
+beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-16T09:00:00") }));
+afterEach(() => vi.useRealTimers());
 
 test("phone, plate and name come out of a spoken line", () => {
   expect(extractFields("Меня зовут анна, номер А123ВС77, телефон +7 900 123-45-67")).toEqual({
