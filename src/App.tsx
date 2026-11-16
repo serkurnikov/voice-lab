@@ -143,6 +143,8 @@ export function App() {
         recorder.addTurn(turn);
       },
       onEnded: (reason, message) => {
+        // A turn-end after the close would otherwise nudge a session that is already gone.
+        unsuperviseRef.current?.();
         setTalking(false);
         // The agent can hang up on its own, in which case the transport button is never
         // pressed — without this the recording of that conversation is simply lost.
@@ -187,6 +189,7 @@ export function App() {
     setError(null);
     const running = sessionRef.current;
     if (running?.isRunning) {
+      unsuperviseRef.current?.();
       await running.stop();
       setTalking(false);
       setEndedBy("user");
@@ -210,6 +213,11 @@ export function App() {
       const session = createSession(current, sessionDeps);
       sessionRef.current = session;
       await session.start();
+      // Torn down mid-start: stop() then found nothing open yet, so the session is ours to close.
+      if (generation !== generationRef.current) {
+        await session.stop();
+        return;
+      }
       unsuperviseRef.current?.();
       unsuperviseRef.current = supervise({
         bus,
@@ -217,11 +225,6 @@ export function App() {
         setProfile: updateProfile,
         send: (text) => session.sendContextualUpdate(text),
       });
-      // Torn down mid-start: stop() then found nothing open yet, so the session is ours to close.
-      if (generation !== generationRef.current) {
-        await session.stop();
-        return;
-      }
       setTalking(true);
     } catch (e) {
       setError(startFailureMessage(e, engineRef.current));
@@ -235,6 +238,7 @@ export function App() {
   useEffect(
     () => () => {
       generationRef.current += 1;
+      unsuperviseRef.current?.();
       void sessionRef.current?.stop();
       sessionRef.current = null;
     },

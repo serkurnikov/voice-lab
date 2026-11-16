@@ -19,16 +19,26 @@ vi.mock("./lib/tokenStore", () => ({
 
 // The session is faked down to the deps it was given, so a tool call can be made by hand.
 let deps: SessionDeps | null = null;
+let sent: string[] = [];
+let starting: Promise<void> = Promise.resolve();
 vi.mock("./lib/pipeline/createSession", () => ({
   createSession: (_: unknown, d: SessionDeps) => {
     deps = d;
-    return { isRunning: true, mouthSpectrum: () => null, start: async () => {}, stop: async () => {}, sendContextualUpdate: () => {} };
+    return {
+      isRunning: true,
+      mouthSpectrum: () => null,
+      start: () => starting,
+      stop: async () => {},
+      sendContextualUpdate: (t: string) => sent.push(t),
+    };
   },
 }));
 
 beforeEach(() => {
   token = "";
   deps = null;
+  sent = [];
+  starting = Promise.resolve();
   vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 404 }));
   stored = { ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio" };
 });
@@ -97,4 +107,63 @@ test("the form on screen is in English whatever language the agent speaks", asyn
   fireEvent.change(screen.getByLabelText(/^Phone/), { target: { value: "123" } });
 
   expect(screen.getByRole("alert").textContent).toBe("Phone: 10 to 15 digits");
+});
+
+// The stored profile lacks phone and service, so every turn-end has a nudge to send.
+const endTurn = () => act(() => deps!.bus.emit({ type: "turn-end", at: 0, metrics: {} as never }));
+
+test("nothing is sent to a conversation the user has ended", async () => {
+  token = "vibe_test";
+  render(<App />);
+  await startConversation();
+  await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+  fireEvent.click(await screen.findByRole("button", { name: /end conversation/i }));
+  await screen.findByRole("button", { name: /start conversation/i });
+  const before = sent.length;
+
+  endTurn();
+
+  expect(sent).toHaveLength(before);
+});
+
+test("nothing is sent to a conversation the agent has hung up", async () => {
+  token = "vibe_test";
+  render(<App />);
+  await startConversation();
+  await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+  act(() => deps!.onEnded("agent"));
+  const before = sent.length;
+
+  endTurn();
+
+  expect(sent).toHaveLength(before);
+});
+
+test("nothing is sent once the page is gone", async () => {
+  token = "vibe_test";
+  const { unmount } = render(<App />);
+  await startConversation();
+  await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+  const bus = deps!.bus;
+  unmount();
+  const before = sent.length;
+
+  bus.emit({ type: "turn-end", at: 0, metrics: {} as never });
+
+  expect(sent).toHaveLength(before);
+});
+
+test("a conversation torn down while starting is never supervised", async () => {
+  token = "vibe_test";
+  let open = () => {};
+  starting = new Promise((r) => (open = r));
+  const { unmount } = render(<App />);
+  await startConversation();
+  const bus = deps!.bus;
+  unmount();
+  await act(async () => open());
+
+  bus.emit({ type: "turn-end", at: 0, metrics: {} as never });
+
+  expect(sent).toEqual([]);
 });
