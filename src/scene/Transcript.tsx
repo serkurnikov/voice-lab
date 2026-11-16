@@ -73,9 +73,28 @@ export function Transcript({ bus }: { bus: EventBus }) {
 
   return (
     <div className="transcript">
-      <div className="transcript-head">conversation</div>
+      <div className="transcript-head">
+        conversation
+        <button type="button" className="transcript-download" onClick={() => download(listRef.current)}>
+          download
+        </button>
+      </div>
       <ol className="transcript-lines" ref={listRef} aria-live="polite" />
       <p className="transcript-empty">Nothing said yet.</p>
     </div>
   );
+}
+
+/** The lines on screen as a text file: the DOM is the only place the whole conversation is kept. */
+function download(list: HTMLOListElement | null) {
+  if (!list) return;
+  const lines = [...list.querySelectorAll(".line")].map(
+    (row) => `${row.querySelector(".line-who")?.textContent}: ${row.querySelector(".line-text")?.textContent}`,
+  );
+  const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `conversation-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
