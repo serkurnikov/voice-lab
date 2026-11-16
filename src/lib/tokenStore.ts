@@ -164,3 +164,7 @@ export async function saveProfile(profile: ClientProfile): Promise<void> {
 export async function loadProfile(): Promise<ClientProfile> {
   return parseProfile(await loadSecret(PROFILE_ID));
 }
+
+export async function clearProfile(): Promise<void> {
+  await saveSecret(PROFILE_ID, "");
+}

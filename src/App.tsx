@@ -6,7 +6,7 @@ import { BACKUP_ENGINE_NOTICE } from "./lib/engine";
 import { createTransport, WorkerError } from "./lib/transport";
 import { loadConfig } from "./lib/config";
 import type { TurnMetrics } from "./lib/types";
-import { loadProfile, loadToken, saveProfile, saveToken } from "./lib/tokenStore";
+import { clearProfile, loadProfile, loadToken, saveProfile, saveToken } from "./lib/tokenStore";
 import { briefing, EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
 import { today } from "./lib/persona";
 import { makeTools } from "./lib/tools";
@@ -63,6 +63,12 @@ export function App() {
     profileRef.current = next;
     setProfile(next);
     void saveProfile(next);
+  }, []);
+  const forgetProfile = useCallback(() => {
+    editedRef.current = true;
+    profileRef.current = EMPTY_PROFILE;
+    setProfile(EMPTY_PROFILE);
+    void clearProfile();
   }, []);
   const config = useMemo(() => loadConfig(storedToken), [storedToken]);
 
@@ -333,7 +339,7 @@ export function App() {
 
           <StageBreakdown metrics={metrics} />
 
-          <ClientForm value={profile} lang="en" onChange={updateProfile} />
+          <ClientForm value={profile} lang="en" onChange={updateProfile} onClear={forgetProfile} />
         </div>
       </section>
 

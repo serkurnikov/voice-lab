@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from "vitest";
 import { EMPTY_PROFILE } from "./formModel";
-import { loadProfile, loadToken, saveProfile, saveToken } from "./tokenStore";
+import { clearProfile, loadProfile, loadToken, saveProfile, saveToken } from "./tokenStore";
 
 /** jsdom has no IndexedDB: a Map behind the few calls tokenStore makes, answering asynchronously. */
 function fakeIndexedDB() {
@@ -62,4 +62,14 @@ test("one failed write does not block every save after it", async () => {
   await saveProfile(profile);
 
   expect(await loadProfile()).toEqual(profile);
+});
+
+test("a cleared profile is gone from the store, and the token stays", async () => {
+  await saveToken("vibe_secret");
+  await saveProfile({ ...EMPTY_PROFILE, name: "Анна", phone: "+34180" });
+
+  await clearProfile();
+
+  expect(await loadProfile()).toEqual(EMPTY_PROFILE);
+  expect(await loadToken()).toBe("vibe_secret");
 });

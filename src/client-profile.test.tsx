@@ -5,13 +5,17 @@ import { EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
 import type { SessionDeps } from "./lib/pipeline/session";
 
 // jsdom has no IndexedDB, so the store is faked; what matters is what the page reads and writes.
-let stored: ClientProfile = EMPTY_PROFILE;
+let stored: ClientProfile | null = EMPTY_PROFILE;
 let token = "";
 let loading: Promise<ClientProfile> | null = null;
 vi.mock("./lib/tokenStore", () => ({
   loadToken: () => Promise.resolve(token),
   saveToken: () => Promise.resolve(),
-  loadProfile: () => loading ?? Promise.resolve(stored),
+  loadProfile: () => loading ?? Promise.resolve(stored ?? EMPTY_PROFILE),
+  clearProfile: () => {
+    stored = null;
+    return Promise.resolve();
+  },
   saveProfile: (p: ClientProfile) => {
     stored = p;
     return Promise.resolve();
@@ -77,6 +81,23 @@ test("a store that answers late does not overwrite what was typed meanwhile", as
   expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("");
 });
 
+test("clear profile empties every field, the service too, and removes the stored record", async () => {
+  token = "vibe_test";
+  stored = { name: "Анна", phone: "+34180", car: "Kia Rio", plate: "180GG", service: "Замена масла", date: "2026-11-17 10:30" };
+  render(<App />);
+  await waitFor(() => expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("Анна"));
+
+  fireEvent.click(screen.getByRole("button", { name: "Clear profile" }));
+
+  for (const label of [/Name/, /Phone/, /Car/, /Plate/, /Visit date/]) {
+    expect((screen.getByLabelText(label) as HTMLInputElement).value, String(label)).toBe("");
+  }
+  expect(screen.getByRole("region", { name: "Service" }).textContent).not.toContain("Замена масла");
+  expect(stored).toBeNull();
+  await startConversation();
+  expect(deps!.briefing!()).not.toMatch(/called before/);
+});
+
 test("every edit is written to the store, so the next reload sees it", async () => {
   render(<App />);
   await waitFor(() => expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("Анна"));
@@ -114,7 +135,7 @@ test("what the customer says reaches the form once confirmed, even when the agen
   });
 
   await waitFor(() => expect((screen.getByLabelText(/Phone/) as HTMLInputElement).value).toBe("89001234567"));
-  expect(stored.phone).toBe("89001234567");
+  expect(stored?.phone).toBe("89001234567");
 });
 
 test("the agent is told at start what the store already knows about the customer", async () => {

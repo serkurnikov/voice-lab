@@ -19,6 +19,8 @@ export const LABELS: Record<Lang, Record<keyof ClientProfile, string>> = {
   en: { name: "Name", phone: "Phone", car: "Car", plate: "Plate number", service: "Service", date: "Visit date" },
 };
 
+export const CLEAR_PROFILE: Record<Lang, string> = { ru: "Очистить профиль", en: "Clear profile" };
+
 const MSG = {
   ru: {
     required: "Обязательное поле",

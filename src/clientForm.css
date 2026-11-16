@@ -66,8 +66,13 @@
   color: var(--fail);
 }
 
-.client-form .form-download {
-  justify-self: start;
+.client-form .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.client-form .form-actions button {
   padding: 8px 12px;
   font: 600 12px/1 var(--sans);
   color: var(--ink);
