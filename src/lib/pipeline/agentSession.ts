@@ -1,6 +1,6 @@
 import { Conversation } from "@elevenlabs/client";
 import { Desmoother } from "../mouthLevel";
-import { SYSTEM_PROMPT } from "../persona";
+import { FIRST_MESSAGE, SYSTEM_PROMPT } from "../persona";
 import { coveredMs } from "../coverage";
 import type { StageName, TurnMetrics } from "../types";
 import { withBriefing, type SessionDeps, type VoiceSession } from "./session";
@@ -94,7 +94,10 @@ export class AgentSession implements VoiceSession {
       conversationToken: token,
 
       // The role travels with the handshake: the server applies it only at start.
-      overrides: { agent: { prompt: { prompt: withBriefing(SYSTEM_PROMPT, this.deps.briefing?.()) } } },
+      // The greeting overrides the dashboard's too; the agent must allow both overrides.
+      overrides: {
+        agent: { prompt: { prompt: withBriefing(SYSTEM_PROMPT, this.deps.briefing?.()) }, firstMessage: FIRST_MESSAGE },
+      },
       // Only the handlers travel from here: each tool must also be declared on the agent.
       clientTools: Object.fromEntries((this.deps.functions ?? []).map((f) => [f.name, f.run])),
 

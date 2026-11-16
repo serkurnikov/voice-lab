@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { AgentSession } from "./agentSession";
-import { SYSTEM_PROMPT } from "../persona";
+import { FIRST_MESSAGE, SYSTEM_PROMPT } from "../persona";
 import { EventBus } from "../events";
 import type { PipelineEvent, TurnMetrics } from "../types";
 import { TurnModel } from "../../scene/turnModel";
@@ -105,6 +105,14 @@ test("the role is sent with the handshake, not left to the agent's own prompt", 
     | { agent?: { prompt?: { prompt?: string } } }
     | undefined;
   expect(overrides?.agent?.prompt?.prompt).toBe(SYSTEM_PROMPT);
+});
+
+test("the agent opens the call and introduces the shop instead of waiting for the customer", async () => {
+  await harness();
+
+  const overrides = startOptions.overrides as { agent: { firstMessage?: string } };
+  expect(overrides.agent.firstMessage).toBe(FIRST_MESSAGE);
+  expect(FIRST_MESSAGE).toMatch(/АвтоЛаб/);
 });
 
 test("what is on file about the customer rides in the prompt, so the greeting already knows them", async () => {
