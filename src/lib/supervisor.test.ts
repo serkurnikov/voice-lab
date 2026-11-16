@@ -78,7 +78,7 @@ function run(start: ClientProfile = EMPTY_PROFILE) {
   const agent = (text: string) => bus.emit({ type: "agent-reply", text, at: 0 });
   const stream = (text: string) => text.split(/(?<= )/).forEach((token) => bus.emit({ type: "llm-token", token, at: 0 }));
   const heard = () => bus.emit({ type: "stage-start", stage: "capture", at: 0 });
-  return { say, agent, stream, endTurn, heard, hungUp, sent, profile: () => p };
+  return { bus, say, agent, stream, endTurn, heard, hungUp, sent, profile: () => p };
 }
 
 test("what the customer says waits for the agent to repeat it and the customer to say yes", () => {
@@ -170,7 +170,16 @@ test("claiming a booking with the form incomplete is called out", () => {
   const s = run({ ...EMPTY_PROFILE, name: "Анна" });
   s.agent("Отлично, вы записаны на завтра.");
   expect(s.sent).toEqual([expect.stringMatching(/^Nothing is booked yet/)]);
-  const done = run({ name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" });
+});
+
+test("a full form is not a booking: the claim stands only after book_appointment succeeded", () => {
+  const full = { name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" };
+  const s = run(full);
+  s.agent("You are booked for tomorrow.");
+  expect(s.sent).toEqual([expect.stringMatching(/^Nothing is booked yet.*call book_appointment/)]);
+
+  const done = run(full);
+  done.bus.emit({ type: "tool-result", name: "book_appointment", facts: ["2026-11-17", "10:30"] });
   done.agent("Вы записаны на 17 ноября.");
   expect(done.sent).toEqual([]);
 });
@@ -225,6 +234,7 @@ test("the call is hung up once the goodbye after the closing hint has been heard
   expect(s.hungUp.count).toBe(1);
   s.heard();
   expect(s.hungUp.count).toBe(1);
+  expect(s.sent.filter((t) => t.startsWith("Nothing is booked"))).toEqual([]);
 });
 
 test("a goodbye before the form is complete does not hang up", () => {

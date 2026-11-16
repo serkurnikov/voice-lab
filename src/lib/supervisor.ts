@@ -134,6 +134,8 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
   let closed = false;
   let farewell = false;
   let hungUp = false;
+  // A full form is not a booking; only the tool's own success is.
+  let booked = false;
   const sent = new Set<string>();
   // The same hint twice reads to the model as insistence.
   const hint = (key: string, text: string) => {
@@ -154,8 +156,9 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
       if (echoed.length === 1) pending = { [echoed[0]]: said[echoed[0]] };
     }
     if (fields.length > 1) hint(`two:${text}`, "Read back one value per turn and wait for the customer's answer.");
-    if (CLAIMS_BOOKED.test(text) && nudge(profile())) {
-      hint(`claim:${missingRequired(profile()).join(",")}`, "Nothing is booked yet. Correct yourself and ask for what the form is still missing.");
+    if (CLAIMS_BOOKED.test(text) && !booked) {
+      const missing = missingRequired(profile()).join(", ");
+      hint(`claim:${missing}`, `Nothing is booked yet: book_appointment has not succeeded. Correct yourself, then ${missing ? `ask for what the form is still missing (${missing})` : "agree a free time and call book_appointment"}.`);
     }
   };
 
@@ -167,6 +170,8 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
     const p = profile();
     if (!p.date.trim() || nudge(p) || caseKey(p) === onFile) return;
     closed = true;
+    // The closing hint itself says the booking is recorded, so the agent repeating it is not a false claim.
+    booked = true;
     hint(
       caseKey(p),
       `The booking is recorded: ${p.service} for ${p.name}, ${p.car}, on ${p.date}, phone ${p.phone}. Tell the customer in one sentence what they are booked for, say goodbye, and ask nothing more.`,
@@ -184,6 +189,7 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
       }
     }
     else if (e.type === "agent-reply") reply(e.text);
+    else if (e.type === "tool-result") booked ||= e.name === "book_appointment";
     else if (e.type === "stt-result") {
       const text = e.result.text;
       if (streamed.trim()) reply(streamed);
