@@ -79,3 +79,10 @@ test("a date already gone is neither offered nor booked", async () => {
   expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-13", time: "10:30" })).toEqual({ error: "date has passed" });
   expect(h.profile().date).toBe("");
 });
+
+test("a booking is refused on a Sunday or a date that is not YYYY-MM-DD, like the slots are", async () => {
+  const h = harness({ name: "Анна", phone: "89001234567", car: "Kia Rio" });
+  expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-22", time: "10:30" })).toEqual({ error: "closed on Sunday" });
+  expect(await h.call("book_appointment", { service_id: "oil", date: "tomorrow", time: "10:30" })).toEqual({ error: "date must be YYYY-MM-DD" });
+  expect(h.profile()).toMatchObject({ service: "", date: "" });
+});

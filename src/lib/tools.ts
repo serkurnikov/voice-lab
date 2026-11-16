@@ -24,6 +24,14 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
     return out;
   };
 
+  /** Why nothing can happen on this date, for both the offer and the booking. */
+  const closed = (date: unknown): string | undefined => {
+    if (!isIsoDate(String(date))) return "date must be YYYY-MM-DD";
+    if (isPast(String(date), now())) return "date has passed";
+    // The prompt says Sunday is closed; a slot on one would contradict it.
+    if (new Date(`${date}T00:00Z`).getUTCDay() === 0) return "closed on Sunday";
+  };
+
   return [
     {
       name: "search_services",
@@ -39,10 +47,8 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
       description: "Free start times on a date (YYYY-MM-DD).",
       parameters: { type: "object", properties: { date: str }, required: ["date"] },
       run: ({ date }) => {
-        if (!isIsoDate(String(date))) return told("find_slots", [], json({ error: "date must be YYYY-MM-DD" }));
-        if (isPast(String(date), now())) return told("find_slots", [], json({ error: "date has passed" }));
-        // The prompt says Sunday is closed; a slot on one would contradict it.
-        if (new Date(`${date}T00:00Z`).getUTCDay() === 0) return told("find_slots", [], json({ error: "closed on Sunday" }));
+        const refused = closed(date);
+        if (refused) return told("find_slots", [], json({ error: refused }));
         const free = HOURS.filter((h) => !booked.has(`${date} ${h}`));
         return told("find_slots", free.length ? [date, ...free] : [], json(free));
       },
@@ -60,7 +66,8 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
         const slot = `${date} ${time}`;
         const missing = missingRequired({ ...profile(), service: service?.ru ?? "" });
         if (!service) return json({ error: "unknown service_id" });
-        if (isPast(String(date), now())) return json({ error: "date has passed" });
+        const refused = closed(date);
+        if (refused) return json({ error: refused });
         if (missing.length) return json({ error: "form incomplete", missing });
         if (!HOURS.includes(String(time)) || booked.has(slot)) return json({ error: "slot not free" });
         booked.add(slot);
