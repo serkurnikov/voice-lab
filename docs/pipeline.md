@@ -64,6 +64,27 @@ role it opened with, so switching roles means a new session. And the agent must 
 override: with it disallowed the server closes the connection instead of ignoring the
 field, which reaches the page as a dropped conversation rather than an error about prompts.
 
+## Form, tools and fact marks
+
+Three observers sit on the bus beside the scene; none of them is in the session.
+
+- [`supervisor.ts`](../src/lib/supervisor.ts) fills the form without relying on tool calls.
+  On `agent-reply` it parses the read-back the prompt prescribes ("Записываю телефон: … Верно?",
+  [`readBack.ts`](../src/lib/readBack.ts)); a "нет" in the next `stt-result` undoes that one
+  value. On `stt-result` it also reads a name, phone and plate from what the customer said.
+  On `turn-end` it sends what the form still lacks as a contextual update, once per change, and
+  once each a stop-driving hint for unsafe symptoms and a correction when the agent claims a
+  booking with the form incomplete.
+- [`tools.ts`](../src/lib/tools.ts) is the one tool list for both engines: `search_services`,
+  `find_slots`, `book_appointment`, `update_form`. Each run emits `tool-result` with the facts it
+  handed the agent. **On ElevenLabs they run only if the same names are declared as client tools
+  on the agent in the dashboard**; undeclared, the agent never calls them and only the
+  supervisor fills the form.
+- [`annotate.ts`](../src/scene/annotate.ts) marks the agent's words in the transcript: a name or
+  number is a *fact* when the prompt's shop facts and price list or a `tool-result` back it
+  (same digits, compatible unit, not negated), and an *assumption* otherwise, as are hedge words.
+  It is a heuristic on text, not a check of the agent's reasoning.
+
 ## Backup engine: Deepgram
 
 When ElevenLabs is down, a key can be switched to [Deepgram's Voice Agent
@@ -81,7 +102,10 @@ What differs, and why the page says so:
   `FunctionCallRequest` → `FunctionCallResponse` with the same `id`, and nothing for a
   call named in `FunctionCallCancelled`.
 - `sendUserMessage`, `sendContextualUpdate` and `injectAgentMessage` map to `InjectUserMessage`,
-  `UpdatePrompt` (appends, never replaces) and `InjectAgentMessage`.
+  `UpdatePrompt` (appends, never replaces) and `InjectAgentMessage`. So on Deepgram every
+  supervisor nudge stays in the prompt: "Form still missing: phone" outlives the phone being
+  given, and nothing is sent once the form is complete. The same text is appended only once
+  per call. Treat nudges there as advisory.
 - `UserStartedSpeaking` is the barge-in signal: queued agent audio is dropped. A reply ends
   when local playback drains, not at `AgentAudioDone`, which only means the last chunk left
   the server.
