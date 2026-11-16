@@ -33,6 +33,14 @@ beforeEach(() => {
   stored = { ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio" };
 });
 
+// The button is on screen before the stored token loads, and a click on it while disabled is lost.
+async function startConversation() {
+  const start = await screen.findByRole("button", { name: /start conversation/i });
+  await waitFor(() => expect(start.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(start);
+  await waitFor(() => expect(deps).not.toBeNull());
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -57,8 +65,7 @@ test("every edit is written to the store, so the next reload sees it", async () 
 test("the agent's update_form lands in the form on screen and in the store", async () => {
   token = "vibe_test";
   render(<App />);
-  fireEvent.click(await screen.findByRole("button", { name: /start conversation/i }));
-  await waitFor(() => expect(deps).not.toBeNull(), { timeout: 5000 });
+  await startConversation();
 
   const run = (name: string, args: Record<string, unknown>) =>
     deps!.functions!.find((f) => f.name === name)!.run(args);
@@ -74,8 +81,7 @@ test("the agent's update_form lands in the form on screen and in the store", asy
 test("what the customer says reaches the form even when the agent calls no tool", async () => {
   token = "vibe_test";
   render(<App />);
-  fireEvent.click(await screen.findByRole("button", { name: /start conversation/i }));
-  await waitFor(() => expect(deps).not.toBeNull(), { timeout: 5000 });
+  await startConversation();
 
   act(() => deps!.bus.emit({ type: "stt-result", result: { text: "телефон 89001234567", words: [] } }));
 
