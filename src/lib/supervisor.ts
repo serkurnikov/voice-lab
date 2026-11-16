@@ -139,8 +139,9 @@ export function supervise({ bus, profile, setProfile, send, hangUp, confirmed }:
   let closed = false;
   let farewell = false;
   let hungUp = false;
-  // A full form is not a booking; only the tool's own success is.
-  let booked = false;
+  // A full form is not a booking; only the tool's own success is, or one recorded on an earlier call.
+  const start = profile();
+  let booked = !!start.date.trim() && !nudge(start);
   const sent = new Set<string>();
   // The same hint twice reads to the model as insistence.
   const hint = (key: string, text: string) => {
