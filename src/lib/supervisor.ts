@@ -217,6 +217,13 @@ export function supervise({ bus, profile, setProfile, send, hangUp, confirmed }:
       for (const [label, cue] of UNSAFE) {
         if (cue.test(text)) hint(`unsafe:${label}`, `The customer described "${label}". Before anything else, tell them not to drive the car and to call a tow truck.`);
       }
+    } else if (e.type === "profile-cleared") {
+      // A yes after Clear would otherwise bring the old value straight back.
+      pending = null;
+      said = {};
+      streamed = "";
+      last = null;
+      confirmed?.clear();
     } else if (e.type === "turn-end") {
       const text = nudge(profile());
       // Once per change: repeating the same nudge every turn only makes the agent nag.

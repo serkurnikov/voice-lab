@@ -55,6 +55,7 @@ export function App() {
   const [storedToken, setStoredToken] = useState("");
   const [tokenReady, setTokenReady] = useState(false);
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
+  const bus = useMemo(() => new EventBus(), []);
   // Tools read the form between renders: two update_form calls in one turn must see each other.
   const profileRef = useRef(EMPTY_PROFILE);
   // The store answers asynchronously; whatever was typed or filled before it does is newer.
@@ -70,7 +71,8 @@ export function App() {
     profileRef.current = EMPTY_PROFILE;
     setProfile(EMPTY_PROFILE);
     void clearProfile();
-  }, []);
+    bus.emit({ type: "profile-cleared" });
+  }, [bus]);
   const config = useMemo(() => loadConfig(storedToken), [storedToken]);
 
   useEffect(() => {
@@ -89,7 +91,6 @@ export function App() {
       alive = false;
     };
   }, []);
-  const bus = useMemo(() => new EventBus(), []);
   const [error, setError] = useState<string | null>(null);
   // The waterfall scrolls a 6s window, so a finished turn vanishes from it within
   // seconds. Keeping the metrics means the result of the run stays on screen —

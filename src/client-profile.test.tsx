@@ -145,6 +145,32 @@ test("what the customer says reaches the form once confirmed, even when the agen
   expect(stored?.phone).toBe("89001234567");
 });
 
+test("clearing the profile forgets the value waiting for a yes, so the yes brings nothing back", async () => {
+  token = "vibe_test";
+  render(<App />);
+  await startConversation();
+  const run = (args: Record<string, unknown>) => deps!.functions!.find((f) => f.name === "update_form")!.run(args);
+
+  act(() => {
+    deps!.bus.emit({ type: "stt-result", result: { text: "меня зовут Анна, телефон 89001234567", words: [] } });
+    deps!.bus.emit({ type: "agent-reply", text: "Записываю имя: Анна. Верно?", at: 0 });
+    deps!.bus.emit({ type: "stt-result", result: { text: "да", words: [] } });
+    deps!.bus.emit({ type: "agent-reply", text: "Записываю телефон: 89001234567. Верно?", at: 0 });
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Clear profile" }));
+  await act(async () => {
+    deps!.bus.emit({ type: "stt-result", result: { text: "да", words: [] } });
+    // Neither the phone still waiting, nor the name confirmed before the clear, nor what was only said.
+    deps!.bus.emit({ type: "agent-reply", text: "Ваш номер 89001234567, так?", at: 0 });
+    deps!.bus.emit({ type: "stt-result", result: { text: "да", words: [] } });
+    await run({ name: "Анна" });
+  });
+
+  expect((screen.getByLabelText(/Phone/) as HTMLInputElement).value).toBe("");
+  expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("");
+  expect(stored).toBeNull();
+});
+
 test("the agent is told at start what the store already knows about the customer", async () => {
   token = "vibe_test";
   render(<App />);

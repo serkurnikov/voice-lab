@@ -86,7 +86,8 @@ Three observers sit on the bus beside the scene; none of them is in the session.
   is a per-call ledger the supervisor adds to on each yes to a read-back, and `update_form`
   saves a value only if it is in the ledger (phones compared by their last ten digits),
   answering `not confirmed` for the rest. A value typed into the form or kept from an earlier
-  call is not a confirmation. `find_slots` and `book_appointment` refuse a time already gone
+  call is not a confirmation, and Clear profile emits `profile-cleared`, on which the supervisor
+  drops the ledger along with the value waiting for a yes and what the customer had said. `find_slots` and `book_appointment` refuse a time already gone
   today as well as a day already gone, and a booking needs the form valid, not merely filled.
 - [`annotate.ts`](../src/scene/annotate.ts) marks the agent's words in the transcript: a name or
   number is a *fact* when the prompt's shop facts and price list or a `tool-result` back it, and

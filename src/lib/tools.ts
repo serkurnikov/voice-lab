@@ -91,7 +91,7 @@ export function makeTools({ profile, setProfile, confirmed, report, now = () => 
         const asked = FIELDS.filter((k) => typeof patch[k] === "string");
         const saved = asked.filter((k) => confirmed.has(k, patch[k] as string));
         const unconfirmed = asked.filter((k) => !saved.includes(k));
-        setProfile(applyPatch(profile(), Object.fromEntries(saved.map((k) => [k, patch[k]]))));
+        if (saved.length) setProfile(applyPatch(profile(), Object.fromEntries(saved.map((k) => [k, patch[k]]))));
         // What the customer said counts as known too, or a phone read back digit by digit
         // would be flagged as a guess.
         const facts = saved.map((k) => profile()[k]);
