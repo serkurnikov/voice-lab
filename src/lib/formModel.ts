@@ -68,3 +68,13 @@ export function applyPatch(p: ClientProfile, patch: Partial<ClientProfile>): Cli
 export function missingRequired(p: ClientProfile): (keyof ClientProfile)[] {
   return REQUIRED.filter((k) => !p[k].trim());
 }
+
+/** A stored profile back into shape: a corrupted or foreign record reads as empty, not as a crash. */
+export function parseProfile(raw: string): ClientProfile {
+  try {
+    const data: unknown = JSON.parse(raw);
+    return data && typeof data === "object" ? applyPatch(EMPTY_PROFILE, data) : EMPTY_PROFILE;
+  } catch {
+    return EMPTY_PROFILE;
+  }
+}

@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { applyPatch, EMPTY_PROFILE, missingRequired, validate, type ClientProfile } from "./formModel";
+import { describe, expect, it, test } from "vitest";
+import { applyPatch, EMPTY_PROFILE, parseProfile, missingRequired, validate, type ClientProfile } from "./formModel";
 
 const ok: ClientProfile = {
   name: "Иван", phone: "+7 (916) 123-45-67", car: "Lada Vesta", plate: "А123ВС77", service: "ТО", date: "2026-03-14",
@@ -75,5 +75,18 @@ describe("missingRequired", () => {
     expect(missingRequired({ ...ok, phone: "", plate: "" })).toEqual(["phone"]);
     expect(missingRequired({ ...ok, name: "   " })).toEqual(["name"]);
     expect(missingRequired(ok)).toEqual([]);
+  });
+});
+
+describe("parseProfile", () => {
+  it("restores what was saved", () => {
+    const saved = { ...EMPTY_PROFILE, name: "Анна", phone: "+7 900 123-45-67" };
+    expect(parseProfile(JSON.stringify(saved))).toEqual(saved);
+  });
+
+  it("reads a missing, corrupted or foreign record as an empty form", () => {
+    for (const raw of ["", "{oops", "null", "42", '{"name":7,"evil":"x"}']) {
+      expect(parseProfile(raw)).toEqual(EMPTY_PROFILE);
+    }
   });
 });

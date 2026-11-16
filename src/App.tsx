@@ -6,7 +6,9 @@ import { BACKUP_ENGINE_NOTICE } from "./lib/engine";
 import { createTransport, WorkerError } from "./lib/transport";
 import { loadConfig } from "./lib/config";
 import type { TurnMetrics } from "./lib/types";
-import { loadToken, saveToken } from "./lib/tokenStore";
+import { loadProfile, loadToken, saveProfile, saveToken } from "./lib/tokenStore";
+import { EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
+import { ClientForm } from "./ClientForm";
 import { Recorder, fixtureFilename, toFixtureJson } from "./lib/recorder";
 import { Waterfall } from "./scene/Waterfall";
 import { StageBreakdown } from "./scene/StageBreakdown";
@@ -47,6 +49,11 @@ export function App() {
   // The first render is offline and flips to live mode once the token is read.
   const [storedToken, setStoredToken] = useState("");
   const [tokenReady, setTokenReady] = useState(false);
+  const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
+  const updateProfile = useCallback((next: ClientProfile) => {
+    setProfile(next);
+    void saveProfile(next);
+  }, []);
   const config = useMemo(() => loadConfig(storedToken), [storedToken]);
 
   useEffect(() => {
@@ -56,6 +63,7 @@ export function App() {
       setStoredToken(t);
       setTokenReady(true);
     });
+    loadProfile().then((p) => alive && setProfile(p));
     return () => {
       alive = false;
     };
@@ -303,6 +311,8 @@ export function App() {
           </div>
 
           <StageBreakdown metrics={metrics} />
+
+          <ClientForm value={profile} lang={engine === "deepgram" ? "en" : "ru"} onChange={updateProfile} />
         </div>
       </section>
 

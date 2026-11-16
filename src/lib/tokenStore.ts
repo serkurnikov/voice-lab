@@ -18,6 +18,7 @@
  * The real containment is elsewhere: the Worker hands out single-use ElevenLabs
  * tokens that expire in seconds, and it only answers a fixed origin list.
  */
+import { parseProfile, type ClientProfile } from "./formModel";
 
 const DB_NAME = "voice-lab";
 const DB_VERSION = 1;
@@ -25,6 +26,7 @@ const STORE = "auth";
 const KEY_ID = "token-key";
 const BLOB_ID = "token-blob";
 const ADMIN_BLOB_ID = "admin-blob";
+const PROFILE_ID = "profile-blob";
 
 interface StoredBlob {
   iv: number[];
@@ -142,4 +144,13 @@ export async function loadAdminToken(): Promise<string> {
 
 export async function clearAdminToken(): Promise<void> {
   await saveSecret(ADMIN_BLOB_ID, "");
+}
+
+/** The customer's form, encrypted like the token so a copied database does not leak it. */
+export async function saveProfile(profile: ClientProfile): Promise<void> {
+  await saveSecret(PROFILE_ID, JSON.stringify(profile));
+}
+
+export async function loadProfile(): Promise<ClientProfile> {
+  return parseProfile(await loadSecret(PROFILE_ID));
 }
