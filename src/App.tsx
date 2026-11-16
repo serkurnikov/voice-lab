@@ -155,7 +155,7 @@ export function App() {
         );
         setEndedBy(reason);
       },
-      functions: makeTools({ profile: () => profileRef.current, setProfile: updateProfile }),
+      functions: makeTools({ profile: () => profileRef.current, setProfile: updateProfile, report: (e) => bus.emit(e) }),
     };
   }, [bus, transport, recorder, updateProfile]);
 

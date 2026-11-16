@@ -23,6 +23,24 @@ test("download saves the conversation on screen as a text file", async () => {
   expect(await readText(blobs[0])).toBe("you: меня зовут Анна\nagent: Здравствуйте, Анна.\n");
 });
 
+test("agent lines mark tool data as fact and guesses as assumption, with a legend", () => {
+  const bus = new EventBus();
+  const { container } = render(<Transcript bus={bus} />);
+
+  act(() => {
+    bus.emit({ type: "tool-result", name: "search_services", facts: ["Замена масла", "2500", "30"] });
+    bus.emit({ type: "llm-token", token: "Замена масла стоит 2", at: 0 });
+    bus.emit({ type: "llm-token", token: " 500 ₽, займёт примерно 40 минут.", at: 1 });
+  });
+
+  const text = (sel: string) => [...container.querySelectorAll(`.line-text ${sel}`)].map((n) => n.textContent);
+  expect(text(".mark-fact")).toEqual(["Замена масла", "2 500 ₽"]);
+  expect(text(".mark-assumption")).toEqual(["примерно", "40 минут"]);
+  expect(container.querySelector(".line-text")?.textContent).toBe("Замена масла стоит 2 500 ₽, займёт примерно 40 минут.");
+  expect(container.querySelector(".transcript-legend .mark-fact")?.textContent).toMatch(/fact/);
+  expect(container.querySelector(".transcript-legend .mark-assumption")?.textContent).toMatch(/assumption/);
+});
+
 // jsdom's Blob has no .text(); FileReader is the jsdom-native way in.
 const readText = (b: Blob) =>
   new Promise<string>((done) => {
