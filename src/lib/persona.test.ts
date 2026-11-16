@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readBacks } from "./readBack";
-import { DEEPGRAM_PROMPT, READ_BACK_EXAMPLE, READ_BACK_EXAMPLE_RU, SERVICE_FACTS, SHOP_FACTS, SYSTEM_PROMPT, TOOL_NAMES } from "./persona";
+import { DEEPGRAM_PROMPT, READ_BACK_EXAMPLE, READ_BACK_EXAMPLE_RU, SERVICE_FACTS, SHOP_FACTS, SYSTEM_PROMPT, today, TOOL_NAMES } from "./persona";
 
 describe("persona", () => {
   it("is a car-service desk that names every client tool", () => {
@@ -63,4 +63,20 @@ describe("persona", () => {
       expect(prompt).toMatch(/I assume/);
     });
   }
+
+  it("asks the name first and answers before asking", () => {
+    expect(SYSTEM_PROMPT).toMatch(/Always ask the name first/);
+    expect(SYSTEM_PROMPT).toMatch(/Answer what the customer asked first/);
+  });
+
+  it("saves a value only after the customer's yes, not as soon as it is heard", () => {
+    expect(SYSTEM_PROMPT).not.toMatch(/right away/);
+    expect(SYSTEM_PROMPT).toMatch(/update_form only with a value the\s+customer has said yes to/);
+  });
+
+  it("tells the model today's date, which it has no other way to know", () => {
+    expect(today(new Date(2026, 10, 16))).toBe(
+      "Today is Monday, 16.11.2026. A date said without a year is the next one from today.",
+    );
+  });
 });

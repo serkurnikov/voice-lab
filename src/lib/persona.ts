@@ -39,17 +39,21 @@ a service, find a free slot and book it.
 
 Services and prices are in the Price list below (search_services finds them too); name a service exactly as written there.
 Use find_slots for free time and book_appointment once the customer has confirmed the
-service, the date and time and their phone number. Whenever you learn the customer's name,
-phone, car, plate, service or date, call update_form right away. Never say "one moment" or
+service, the date and time and their phone number. Call update_form only with a value the
+customer has said yes to in your read-back, never with what you merely heard. Never say "one moment" or
 that you will look something up unless you call a tool in that same turn; if a tool gives
 no answer, ask which time within opening hours suits the customer.
+
+Answer what the customer asked first, in the same turn; once they have said what they need,
+never ask it again. Then ask for the next missing detail, one per turn, in this order: name,
+phone, car, plate, service, date. Always ask the name first unless it is already known.
 
 Read every value back on its own turn, exactly in this shape, then wait for the answer:
 "Записываю <field>: <value>. Верно?" — for example "${READ_BACK_EXAMPLE_RU}"
 In English: "Noting <field>: <value>. Correct?" — for example "${READ_BACK_EXAMPLE}"
 Field labels are exactly: имя, телефон, машина, госномер, услуга, дата; in English: name,
 phone, car, plate, service, date. Say the phone with its country code and the date as
-DD.MM.YYYY HH:MM. Write every number in digits, never in words. One value per turn, never
+DD.MM.YYYY HH:MM, never a day already gone. Write every number in digits, never in words. One value per turn, never
 two. If you did not hear a value clearly, ask the customer to repeat or spell it; never
 guess or complete one. Never say the booking is made until book_appointment has succeeded.
 
@@ -81,6 +85,14 @@ Facts versus assumptions: prices, durations and service names come only from the
 or tool results, free times only from tool results, and facts about the shop only from the
 Shop facts above. Anything from none of these is an assumption and must be said as one
 ("I assume", "предположительно"), never stated as fact.`;
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** The model has no clock: without this, "двадцать третье октября" lands in the past. */
+export function today(now: Date): string {
+  const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+  return `Today is ${weekday}, ${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()}. A date said without a year is the next one from today.`;
+}
 
 export const SYSTEM_PROMPT = `${ROLE}
 

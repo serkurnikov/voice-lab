@@ -75,7 +75,8 @@ function run(start: ClientProfile = EMPTY_PROFILE) {
   const say = (text: string) => bus.emit({ type: "stt-result", result: { text, words: [] } });
   const endTurn = () => bus.emit({ type: "turn-end", at: 0, metrics: {} as never });
   const agent = (text: string) => bus.emit({ type: "agent-reply", text, at: 0 });
-  return { say, agent, endTurn, sent, profile: () => p };
+  const stream = (text: string) => text.split(/(?<= )/).forEach((token) => bus.emit({ type: "llm-token", token, at: 0 }));
+  return { say, agent, stream, endTurn, sent, profile: () => p };
 }
 
 test("what the customer says lands in the form without any tool call", () => {
@@ -100,23 +101,33 @@ test("a booked date with its time is not questioned after the booking", () => {
   expect(nudge({ name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 25:30" })).toMatch(/date/);
 });
 
-test("a value the agent reads back fills the form, and a no puts the old one back", () => {
+test("a read-back reaches the form only on the customer's yes", () => {
   const s = run({ ...EMPTY_PROFILE, car: "Kia Rio" });
   s.agent("Записываю машину: Hyundai Solaris. Верно?");
-  expect(s.profile().car).toBe("Hyundai Solaris");
+  expect(s.profile().car).toBe("Kia Rio");
   s.say("нет, это не так");
   expect(s.profile().car).toBe("Kia Rio");
   s.agent("Записываю телефон: +7 912 345 67 89. Верно?");
-  s.say("да");
-  s.say("нет");
+  s.say("да, верно");
   expect(s.profile().phone).toBe("+7 912 345 67 89");
+  s.say("да");
+  s.agent("Записываю машину: Hyundai Solaris. Верно?");
+  s.say("ну я не знаю");
+  expect(s.profile().car).toBe("Kia Rio");
 });
 
-test("a no after two read-backs undoes neither, and the agent is told to read one at a time", () => {
+test("a streamed read-back, whose final agent-reply the session drops, is still confirmed by a yes", () => {
+  const s = run();
+  s.stream("Записываю машину: Kia Rio. Верно?");
+  s.say("да");
+  expect(s.profile().car).toBe("Kia Rio");
+});
+
+test("a yes after two read-backs takes neither, and the agent is told to read one at a time", () => {
   const s = run();
   s.agent("Записываю имя: Анна. Верно? Записываю машину: Kia Rio. Верно?");
-  s.say("нет");
-  expect(s.profile()).toMatchObject({ name: "Анна", car: "Kia Rio" });
+  s.say("да");
+  expect(s.profile()).toMatchObject({ name: "", car: "" });
   expect(s.sent).toEqual(["Read back one value per turn and wait for the customer's answer."]);
 });
 

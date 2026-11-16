@@ -47,6 +47,15 @@ describe("ClientForm", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/10 to 15/);
   });
 
+  test("the service is the agent's to set: shown last as text, not editable", () => {
+    const service = "Замена масла и фильтра, проверка тормозных колодок";
+    render(<ClientForm value={{ ...EMPTY_PROFILE, service }} lang="en" onChange={() => {}} />);
+    expect(screen.queryByRole("textbox", { name: /Service/ })).toBeNull();
+    const block = screen.getByRole("region", { name: "Service" });
+    expect(block.textContent).toContain(service);
+    expect(block.nextElementSibling?.className).toBe("form-download");
+  });
+
   test("a required field is flagged once the user leaves it empty", () => {
     render(<ClientForm value={EMPTY_PROFILE} lang="en" onChange={() => {}} />);
     fireEvent.blur(screen.getByLabelText(/Name/));

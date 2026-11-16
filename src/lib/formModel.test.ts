@@ -2,7 +2,7 @@ import { describe, expect, it, test } from "vitest";
 import { applyPatch, briefing, EMPTY_PROFILE, formText, parseProfile, missingRequired, validate, type ClientProfile } from "./formModel";
 
 const ok: ClientProfile = {
-  name: "Иван", phone: "+7 (916) 123-45-67", car: "Lada Vesta", plate: "А123ВС77", service: "ТО", date: "2026-03-14",
+  name: "Иван", phone: "+7 (916) 123-45-67", car: "Lada Vesta", plate: "А123ВС77", service: "ТО", date: "2030-03-14",
 };
 
 describe("validate", () => {
@@ -40,9 +40,15 @@ describe("validate", () => {
   });
 
   test("date must be a real ISO calendar date", () => {
-    expect(validate({ ...ok, date: "2024-02-29" }, "en").date).toBeUndefined();
+    expect(validate({ ...ok, date: "2028-02-29" }, "en").date).toBeUndefined();
     expect(validate({ ...ok, date: "2025-02-30" }, "en").date).toBeTruthy();
     expect(validate({ ...ok, date: "14.03.2026" }, "ru").date).toBeTruthy();
+  });
+
+  test("a date already gone is refused, today is not", () => {
+    const now = new Date(2026, 10, 16, 15);
+    expect(validate({ ...ok, date: "2026-11-15 10:30" }, "ru", now).date).toBe("Эта дата уже прошла");
+    expect(validate({ ...ok, date: "2026-11-16 17:00" }, "en", now).date).toBeUndefined();
   });
 });
 
@@ -91,12 +97,15 @@ describe("parseProfile", () => {
   });
 });
 
-test("the briefing names what is on file and is empty for a stranger", () => {
+test("the briefing names who called before, asks for each to be confirmed, and drops last time's booking", () => {
   expect(briefing(EMPTY_PROFILE)).toBe("");
-  const b = briefing({ ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio" });
+  const b = briefing({ ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio", service: "Замена масла", date: "2026-11-17" });
   expect(b).toContain("name: Анна");
   expect(b).toContain("car: Kia Rio");
   expect(b).not.toContain("phone");
+  expect(b).not.toMatch(/Замена|2026/);
+  expect(b).toMatch(/not confirmed for this call: read each one back and get a yes/);
+  expect(b).not.toMatch(/do not ask/);
 });
 
 test("the form as text keeps every field in order, the empty ones too", () => {

@@ -8,6 +8,7 @@ import { loadConfig } from "./lib/config";
 import type { TurnMetrics } from "./lib/types";
 import { loadProfile, loadToken, saveProfile, saveToken } from "./lib/tokenStore";
 import { briefing, EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
+import { today } from "./lib/persona";
 import { makeTools } from "./lib/tools";
 import { supervise } from "./lib/supervisor";
 import { ClientForm } from "./ClientForm";
@@ -159,7 +160,7 @@ export function App() {
         setEndedBy(reason);
       },
       functions: makeTools({ profile: () => profileRef.current, setProfile: updateProfile, report: (e) => bus.emit(e) }),
-      briefing: () => briefing(profileRef.current),
+      briefing: () => [today(new Date()), briefing(profileRef.current)].filter(Boolean).join("\n\n"),
     };
   }, [bus, transport, recorder, updateProfile]);
 

@@ -25,12 +25,14 @@ const MSG = {
     phone: "Телефон: от 10 до 15 цифр",
     plate: "Госномер: от 5 до 9 букв или цифр",
     date: "Дата в формате ГГГГ-ММ-ДД",
+    past: "Эта дата уже прошла",
   },
   en: {
     required: "Required",
     phone: "Phone: 10 to 15 digits",
     plate: "Plate: 5 to 9 letters or digits",
     date: "Date as YYYY-MM-DD",
+    past: "That date has already passed",
   },
 };
 
@@ -42,7 +44,15 @@ export function isIsoDate(s: string): boolean {
   return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
 }
 
-export function validate(p: ClientProfile, lang: Lang): FormErrors {
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** True when a "YYYY-MM-DD[ HH:MM]" value falls on a day already gone. */
+export function isPast(date: string, now: Date): boolean {
+  const day = date.trim().slice(0, 10);
+  return isIsoDate(day) && day < `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+export function validate(p: ClientProfile, lang: Lang, now = new Date()): FormErrors {
   const t = MSG[lang];
   const errors: FormErrors = {};
   for (const k of REQUIRED) if (!p[k].trim()) errors[k] = t.required;
@@ -55,6 +65,7 @@ export function validate(p: ClientProfile, lang: Lang): FormErrors {
   // A booking writes the time after the date: "2026-11-17 10:30".
   const when = /^(\S+)(?: ([01]\d|2[0-3]):[0-5]\d)?$/.exec(p.date.trim());
   if (p.date.trim() && !(when && isIsoDate(when[1]))) errors.date = t.date;
+  else if (p.date.trim() && isPast(p.date, now)) errors.date = t.past;
   return errors;
 }
 
@@ -81,11 +92,15 @@ export function parseProfile(raw: string): ClientProfile {
   }
 }
 
-/** The fields already filled, as a note for the agent; empty when nothing is known. */
+// Who the customer is carries over between calls; what they booked last time does not.
+const REMEMBERED = ["name", "phone", "car", "plate"] as const;
+
+/** What earlier calls left on file, as a note for the agent; empty when nothing is known. */
 export function briefing(p: ClientProfile): string {
-  const known = FIELDS.filter((k) => p[k]).map((k) => `${k}: ${p[k]}`);
+  const known = REMEMBERED.filter((k) => p[k]).map((k) => `${k}: ${p[k]}`);
+  // Taken on trust, a mis-heard phone from the last call would be booked again unchecked.
   return known.length
-    ? `Returning customer, already on file: ${known.join("; ")}. Greet them by name and do not ask for these again.`
+    ? `The customer has called before. From earlier calls: ${known.join("; ")}. These are not confirmed for this call: read each one back and get a yes before using it.`
     : "";
 }
 

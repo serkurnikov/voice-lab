@@ -3,6 +3,9 @@ import { FIELDS, formText, LABELS, REQUIRED, validate, type ClientProfile, type 
 import { saveFile } from "./lib/saveFile";
 import "./clientForm.css";
 
+// Only the agent sets the service, from the price list; the form shows it, last, as text.
+const EDITABLE = FIELDS.filter((k) => k !== "service");
+
 type Props = { value: ClientProfile; lang: Lang; onChange(next: ClientProfile): void };
 
 export function ClientForm({ value, lang, onChange }: Props) {
@@ -11,7 +14,7 @@ export function ClientForm({ value, lang, onChange }: Props) {
 
   return (
     <form className="client-form" noValidate onSubmit={(e) => e.preventDefault()}>
-      {FIELDS.map((k) => {
+      {EDITABLE.map((k) => {
         // A field the agent filled has content, so it is checked without ever being blurred.
         const error = (touched[k] || value[k]) && errors[k];
         return (
@@ -33,6 +36,10 @@ export function ClientForm({ value, lang, onChange }: Props) {
           </label>
         );
       })}
+      <section className="form-service" aria-label={LABELS[lang].service}>
+        <h3>{LABELS[lang].service}</h3>
+        <p className={value.service ? undefined : "form-service-empty"}>{value.service || "—"}</p>
+      </section>
       <button type="button" className="form-download" onClick={() => download(formText(value, lang))}>
         download form
       </button>

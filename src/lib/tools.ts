@@ -1,5 +1,5 @@
 import { searchServices, SERVICES } from "./catalog";
-import { applyPatch, FIELDS, isIsoDate, missingRequired, type ClientProfile } from "./formModel";
+import { applyPatch, FIELDS, isIsoDate, isPast, missingRequired, type ClientProfile } from "./formModel";
 import type { ClientFunction } from "./pipeline/session";
 import type { PipelineEvent } from "./types";
 
@@ -8,13 +8,15 @@ export interface ToolDeps {
   setProfile: (p: ClientProfile) => void;
   /** Receives a `tool-result` with the facts each run handed the agent. */
   report?: (e: PipelineEvent) => void;
+  /** The clock a past date is judged by; injectable so tests do not age. */
+  now?: () => Date;
 }
 
 const HOURS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00"];
 const str = { type: "string" };
 
 /** The agent's tools, one list for both engines. Bookings live for the page's lifetime. */
-export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunction[] {
+export function makeTools({ profile, setProfile, report, now = () => new Date() }: ToolDeps): ClientFunction[] {
   const booked = new Set<string>();
   const json = (v: unknown) => JSON.stringify(v);
   const told = <T>(name: string, facts: unknown[], out: T): T => {
@@ -38,6 +40,7 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
       parameters: { type: "object", properties: { date: str }, required: ["date"] },
       run: ({ date }) => {
         if (!isIsoDate(String(date))) return told("find_slots", [], json({ error: "date must be YYYY-MM-DD" }));
+        if (isPast(String(date), now())) return told("find_slots", [], json({ error: "date has passed" }));
         // The prompt says Sunday is closed; a slot on one would contradict it.
         if (new Date(`${date}T00:00Z`).getUTCDay() === 0) return told("find_slots", [], json({ error: "closed on Sunday" }));
         const free = HOURS.filter((h) => !booked.has(`${date} ${h}`));
@@ -57,6 +60,7 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
         const slot = `${date} ${time}`;
         const missing = missingRequired({ ...profile(), service: service?.ru ?? "" });
         if (!service) return json({ error: "unknown service_id" });
+        if (isPast(String(date), now())) return json({ error: "date has passed" });
         if (missing.length) return json({ error: "form incomplete", missing });
         if (!HOURS.includes(String(time)) || booked.has(slot)) return json({ error: "slot not free" });
         booked.add(slot);
@@ -66,7 +70,7 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
     },
     {
       name: "update_form",
-      description: "Fill or correct fields of the customer form as soon as the customer mentions them.",
+      description: "Save form fields the customer has confirmed with a yes to your read-back.",
       parameters: { type: "object", properties: Object.fromEntries(FIELDS.map((k) => [k, str])) },
       run: (patch) => {
         setProfile(applyPatch(profile(), patch));

@@ -4,10 +4,13 @@ import { makeTools } from "./tools";
 import { TOOL_NAMES } from "./persona";
 import type { PipelineEvent } from "./types";
 
+// Monday; the dates below are the days after it.
+const NOW = new Date(2026, 10, 16, 12);
+
 function harness(start: Partial<ClientProfile> = {}) {
   let p: ClientProfile = { ...EMPTY_PROFILE, ...start };
   const reported: PipelineEvent[] = [];
-  const tools = makeTools({ profile: () => p, setProfile: (n) => (p = n), report: (e) => reported.push(e) });
+  const tools = makeTools({ profile: () => p, setProfile: (n) => (p = n), report: (e) => reported.push(e), now: () => NOW });
   const call = async (name: string, args: Record<string, unknown>) =>
     JSON.parse(await tools.find((t) => t.name === name)!.run(args));
   const facts = (name: string) =>
@@ -68,4 +71,11 @@ test("find_slots offers nothing on a Sunday or a malformed date", async () => {
   expect(await h.call("find_slots", { date: "2026-11-22" })).toEqual({ error: "closed on Sunday" });
   expect(await h.call("find_slots", { date: "завтра" })).toEqual({ error: "date must be YYYY-MM-DD" });
   expect(h.facts("find_slots")).toEqual([]);
+});
+
+test("a date already gone is neither offered nor booked", async () => {
+  const h = harness({ name: "Анна", phone: "89001234567", car: "Kia Rio" });
+  expect(await h.call("find_slots", { date: "2026-11-13" })).toEqual({ error: "date has passed" });
+  expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-13", time: "10:30" })).toEqual({ error: "date has passed" });
+  expect(h.profile().date).toBe("");
 });

@@ -1,6 +1,6 @@
 import { applyPatch, missingRequired, validate, type ClientProfile } from "./formModel";
 import type { EventBus } from "./events";
-import { readBacks, rejects } from "./readBack";
+import { accepts, readBacks } from "./readBack";
 
 const L = "АВЕКМНОРСТУХABEKMHOPCTYX";
 // \b is ASCII-only in JS even with /u, so Cyrillic plates need explicit edges.
@@ -91,13 +91,15 @@ interface Deps {
 }
 
 /**
- * Fills the form from the agent's read-backs and the customer's own words, and steers the
+ * Fills the form from read-backs the customer said yes to and from their own words, and steers the
  * model with what is left. Works whether or not the model ever calls update_form.
  */
 export function supervise({ bus, profile, setProfile, send }: Deps): () => void {
   let last: string | null = null;
-  // The one value just read back and what it replaced, so a "нет" can undo it.
-  let pending: { field: keyof ClientProfile; was: string } | null = null;
+  // The value just read back waits for the customer's yes; a mis-heard read-back never reaches the form.
+  let pending: Partial<ClientProfile> | null = null;
+  // When ElevenLabs streams a reply, its final agent-reply is not emitted; the tokens are the reply.
+  let streamed = "";
   const sent = new Set<string>();
   // The same hint twice reads to the model as insistence.
   const hint = (key: string, text: string) => {
@@ -105,20 +107,25 @@ export function supervise({ bus, profile, setProfile, send }: Deps): () => void 
     sent.add(key);
   };
 
+  const reply = (text: string) => {
+    streamed = "";
+    const heard = readBacks(text);
+    const fields = Object.keys(heard) as (keyof ClientProfile)[];
+    // Two read-backs in one breath leave a lone "да" ambiguous, so neither is taken on it.
+    pending = fields.length === 1 ? heard : null;
+    if (fields.length > 1) hint(`two:${text}`, "Read back one value per turn and wait for the customer's answer.");
+    if (CLAIMS_BOOKED.test(text) && nudge(profile())) {
+      hint(`claim:${missingRequired(profile()).join(",")}`, "Nothing is booked yet. Correct yourself and ask for what the form is still missing.");
+    }
+  };
+
   return bus.on((e) => {
-    if (e.type === "agent-reply") {
-      const heard = readBacks(e.text);
-      const fields = Object.keys(heard) as (keyof ClientProfile)[];
-      // Two read-backs in one breath leave a lone "нет" ambiguous, so neither is undone by it.
-      pending = fields.length === 1 ? { field: fields[0], was: profile()[fields[0]] } : null;
-      if (fields.length) setProfile(applyPatch(profile(), heard));
-      if (fields.length > 1) hint(`two:${e.text}`, "Read back one value per turn and wait for the customer's answer.");
-      if (CLAIMS_BOOKED.test(e.text) && nudge(profile())) {
-        hint(`claim:${missingRequired(profile()).join(",")}`, "Nothing is booked yet. Correct yourself and ask for what the form is still missing.");
-      }
-    } else if (e.type === "stt-result") {
+    if (e.type === "llm-token") streamed += e.token;
+    else if (e.type === "agent-reply") reply(e.text);
+    else if (e.type === "stt-result") {
       const text = e.result.text;
-      if (pending && rejects(text)) setProfile(applyPatch(profile(), { [pending.field]: pending.was }));
+      if (streamed.trim()) reply(streamed);
+      if (pending && accepts(text)) setProfile(applyPatch(profile(), pending));
       pending = null;
       const patch = extractFields(text);
       if (Object.keys(patch).length) setProfile(applyPatch(profile(), patch));
