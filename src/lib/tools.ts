@@ -1,5 +1,5 @@
 import { searchServices, SERVICES } from "./catalog";
-import { applyPatch, FIELDS, missingRequired, type ClientProfile } from "./formModel";
+import { applyPatch, FIELDS, isIsoDate, missingRequired, type ClientProfile } from "./formModel";
 import type { ClientFunction } from "./pipeline/session";
 import type { PipelineEvent } from "./types";
 
@@ -18,7 +18,7 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
   const booked = new Set<string>();
   const json = (v: unknown) => JSON.stringify(v);
   const told = <T>(name: string, facts: unknown[], out: T): T => {
-    if (facts.length) report?.({ type: "tool-result", name, facts: facts.map(String) });
+    report?.({ type: "tool-result", name, facts: facts.map(String) });
     return out;
   };
 
@@ -29,7 +29,7 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
       parameters: { type: "object", properties: { query: str }, required: ["query"] },
       run: ({ query }) => {
         const found = searchServices(String(query ?? "")).map(({ id, ru, en, price, minutes }) => ({ id, ru, en, price, minutes }));
-        return told("search_services", found.flatMap((s) => [s.ru, s.en, s.price, s.minutes]), json(found));
+        return told("search_services", found.flatMap((s) => [s.ru, s.en, `${s.price} ₽`, `${s.minutes} min`]), json(found));
       },
     },
     {
@@ -37,6 +37,9 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
       description: "Free start times on a date (YYYY-MM-DD).",
       parameters: { type: "object", properties: { date: str }, required: ["date"] },
       run: ({ date }) => {
+        if (!isIsoDate(String(date))) return told("find_slots", [], json({ error: "date must be YYYY-MM-DD" }));
+        // The prompt says Sunday is closed; a slot on one would contradict it.
+        if (new Date(`${date}T00:00Z`).getUTCDay() === 0) return told("find_slots", [], json({ error: "closed on Sunday" }));
         const free = HOURS.filter((h) => !booked.has(`${date} ${h}`));
         return told("find_slots", free.length ? [date, ...free] : [], json(free));
       },
@@ -58,7 +61,7 @@ export function makeTools({ profile, setProfile, report }: ToolDeps): ClientFunc
         if (!HOURS.includes(String(time)) || booked.has(slot)) return json({ error: "slot not free" });
         booked.add(slot);
         setProfile(applyPatch(profile(), { service: service.ru, date: slot }));
-        return told("book_appointment", [service.ru, service.en, service.price, date, time], json({ ok: true, service: service.ru, at: slot }));
+        return told("book_appointment", [service.ru, service.en, `${service.price} ₽`, date, time], json({ ok: true, service: service.ru, at: slot }));
       },
     },
     {

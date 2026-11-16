@@ -35,3 +35,17 @@ test("the segments rebuild the reply exactly", () => {
   const text = "Примерно 2 500 ₽ за Замену масла, в 9:00.";
   expect(annotate(text, [...OIL, "09:00"]).map((s) => s.text).join("")).toBe(text);
 });
+
+test("traps that must never read as fact", () => {
+  const PHONE = ["+7 912 500 67 89"];
+  const PRICES = ["Замена масла, Oil change: 2500 ₽, 30 min"];
+  for (const [text, facts, wrong] of [
+    ["Это стоит 500 рублей.", PHONE, "500 рублей"],
+    ["Масло поменяем за 30 ₽.", PRICES, "30 ₽"],
+    ["Займёт 2500 минут.", PRICES, "2500 минут"],
+    ["Это будет не 2500 ₽.", PRICES, "2500 ₽"],
+    ["It is not 30 minutes.", PRICES, "30 minutes"],
+  ] as const) expect(marked(text, [...facts], "fact"), text).not.toContain(wrong);
+  expect(marked("Ваш номер 912 500 67 89.", PHONE, "fact")).toEqual(["912 500", "67", "89"]);
+  expect(marked("Займёт 30 минут, 2500 ₽.", PRICES, "fact")).toEqual(["30 минут", "2500 ₽"]);
+});

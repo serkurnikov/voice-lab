@@ -2,7 +2,8 @@
  * Splits an agent reply into what a tool backed and what the agent supplied itself.
  *
  * A heuristic, not a proof: it shows the interviewer where the agent stayed on data and
- * where it guessed. Numbers count as backed when a tool returned the same digits; names
+ * where it guessed. Numbers count as backed when a fact has the same digits with a compatible
+ * unit, and never when negated ("не 2500"); names
  * when they match a tool's text up to a Russian ending.
  */
 export type Mark = "fact" | "assumption";
@@ -21,6 +22,12 @@ const HEDGE = new RegExp(
   "giu",
 );
 
+const MONEY = /^\s?(?:₽|руб|rub|roub)/iu;
+const TIME = /^\s?(?:мин|min)/iu;
+type Kind = "money" | "time" | "any";
+// A fact that says "2500 ₽" backs a price, not "2500 минут"; a bare tool number backs either.
+const kindAfter = (s: string): Kind => (MONEY.test(s) ? "money" : TIME.test(s) ? "time" : "any");
+const NEGATED = /(?<![\p{L}])(?:не|not)\s+$/iu;
 const digits = (s: string) => s.replace(/\D/g, "");
 // "09:00" is said as "9:00".
 const numKey = (s: string) => (s.includes(":") ? s.replace(/^0/, "") : digits(s));
@@ -42,15 +49,16 @@ interface Span {
 }
 
 export function annotate(text: string, facts: Iterable<string>): Segment[] {
-  const numbers = new Set<string>();
+  const numbers = new Map<string, Set<Kind>>();
+  const add = (key: string, kind: Kind) => numbers.set(key, (numbers.get(key) ?? new Set()).add(kind));
   // Long digit runs (phones) are read back in pieces, so any piece of them counts.
   const runs: string[] = [];
   const names: string[] = [];
   for (const f of facts) {
-    for (const m of f.match(NUMBER) ?? []) {
-      numbers.add(numKey(m));
+    for (const m of f.matchAll(NUMBER)) {
+      add(numKey(m[0]), kindAfter(f.slice(m.index + m[0].length)));
       // A date is spoken as "17 ноября", not as the ISO string a tool returns.
-      if (m.includes("-")) for (const part of m.split("-")) numbers.add(String(Number(part)));
+      if (m[0].includes("-")) for (const part of m[0].split("-")) add(String(Number(part)), "any");
     }
     const d = digits(f);
     if (d.length >= 7) runs.push(d);
@@ -68,8 +76,13 @@ export function annotate(text: string, facts: Iterable<string>): Segment[] {
   const num = new RegExp(`${EDGE_L}(?:${NUMBER.source})${UNIT}${EDGE_R}`, "gu");
   for (const m of text.matchAll(num)) {
     const core = m[0].match(NUMBER)![0];
-    const key = numKey(core);
-    const backed = numbers.has(key) || runs.some((r) => r.includes(digits(core)));
+    const unit = m[0].slice(core.length);
+    const kinds = numbers.get(numKey(core));
+    const kind = kindAfter(unit);
+    // A phone's pieces back a bare number only: "500 рублей" is not part of a phone.
+    const backed =
+      !NEGATED.test(text.slice(Math.max(0, m.index - 6), m.index)) &&
+      (!!kinds && (kind === "any" || kinds.has("any") || kinds.has(kind)) || (!unit && runs.some((r) => r.includes(digits(core)))));
     spans.push({ start: m.index, end: m.index + m[0].length, mark: backed ? "fact" : "assumption" });
   }
   for (const m of text.matchAll(HEDGE)) spans.push({ start: m.index, end: m.index + m[0].length, mark: "assumption" });
