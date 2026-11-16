@@ -70,7 +70,17 @@ async function getKey(db: IDBDatabase): Promise<CryptoKey> {
   return key;
 }
 
-async function saveSecret(id: string, secret: string): Promise<void> {
+// One write at a time: two saves racing on a first visit would each mint a key, and the
+// loser's record would then decrypt as empty. It also keeps the last keystroke the last put.
+let writes: Promise<void> = Promise.resolve();
+
+function saveSecret(id: string, secret: string): Promise<void> {
+  const next = writes.then(() => writeSecret(id, secret));
+  writes = next.catch(() => undefined);
+  return next;
+}
+
+async function writeSecret(id: string, secret: string): Promise<void> {
   const db = await open();
   try {
     if (!secret) {
