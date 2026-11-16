@@ -7,10 +7,11 @@ import type { SessionDeps } from "./lib/pipeline/session";
 // jsdom has no IndexedDB, so the store is faked; what matters is what the page reads and writes.
 let stored: ClientProfile = EMPTY_PROFILE;
 let token = "";
+let loading: Promise<ClientProfile> | null = null;
 vi.mock("./lib/tokenStore", () => ({
   loadToken: () => Promise.resolve(token),
   saveToken: () => Promise.resolve(),
-  loadProfile: () => Promise.resolve(stored),
+  loadProfile: () => loading ?? Promise.resolve(stored),
   saveProfile: (p: ClientProfile) => {
     stored = p;
     return Promise.resolve();
@@ -36,6 +37,7 @@ vi.mock("./lib/pipeline/createSession", () => ({
 
 beforeEach(() => {
   token = "";
+  loading = null;
   deps = null;
   sent = [];
   starting = Promise.resolve();
@@ -61,6 +63,18 @@ test("after a reload the form comes back filled from the store", async () => {
 
   await waitFor(() => expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("Анна"));
   expect((screen.getByLabelText(/Car/) as HTMLInputElement).value).toBe("Kia Rio");
+});
+
+test("a store that answers late does not overwrite what was typed meanwhile", async () => {
+  let answer = (_: ClientProfile) => {};
+  loading = new Promise((r) => (answer = r));
+  render(<App />);
+  fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "+7 900 123-45-67" } });
+
+  await act(async () => answer({ ...EMPTY_PROFILE, name: "Анна", phone: "+34180" }));
+
+  expect((screen.getByLabelText(/Phone/) as HTMLInputElement).value).toBe("+7 900 123-45-67");
+  expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe("");
 });
 
 test("every edit is written to the store, so the next reload sees it", async () => {

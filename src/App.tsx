@@ -56,7 +56,10 @@ export function App() {
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
   // Tools read the form between renders: two update_form calls in one turn must see each other.
   const profileRef = useRef(EMPTY_PROFILE);
+  // The store answers asynchronously; whatever was typed or filled before it does is newer.
+  const editedRef = useRef(false);
   const updateProfile = useCallback((next: ClientProfile) => {
+    editedRef.current = true;
     profileRef.current = next;
     setProfile(next);
     void saveProfile(next);
@@ -71,7 +74,7 @@ export function App() {
       setTokenReady(true);
     });
     loadProfile().then((p) => {
-      if (!alive) return;
+      if (!alive || editedRef.current) return;
       profileRef.current = p;
       setProfile(p);
     });
