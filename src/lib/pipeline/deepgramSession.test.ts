@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { DEEPGRAM_AGENT_URL, DeepgramSession, type ClientFunction } from "./deepgramSession";
 import type { DeepgramAudio } from "./deepgramAudio";
-import { SYSTEM_PROMPT } from "../persona";
+import { DEEPGRAM_PROMPT } from "../persona";
 import { EventBus } from "../events";
 import type { PipelineEvent, TurnMetrics } from "../types";
 
@@ -173,7 +173,7 @@ test("Settings carry the role, the client functions and English-only managed mod
   const settings = socket.json().find((m) => m.type === "Settings");
   expect(settings.audio.input).toEqual({ encoding: "linear16", sample_rate: 48000 });
   expect(settings.audio.output.sample_rate).toBe(24000);
-  expect(settings.agent.think.prompt).toBe(SYSTEM_PROMPT);
+  expect(settings.agent.think.prompt).toBe(DEEPGRAM_PROMPT);
   expect(settings.agent.think.provider.type, "managed LLM, no key of ours").toBe("open_ai");
   expect(settings.agent.think.endpoint, "no endpoint means Deepgram-managed").toBeUndefined();
   expect(settings.agent.think.functions).toEqual([
