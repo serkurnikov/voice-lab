@@ -66,18 +66,9 @@
   color: var(--fail);
 }
 
+/* The look comes from the button rules in scene/tokens.css; only placement is here. */
 .client-form .form-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.client-form .form-actions button {
-  padding: 8px 12px;
-  font: 600 12px/1 var(--sans);
-  color: var(--ink);
-  background: var(--field);
-  border: 1px solid var(--field-edge);
-  border-radius: var(--radius);
-  cursor: pointer;
 }

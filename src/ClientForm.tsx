@@ -41,11 +41,12 @@ export function ClientForm({ value, lang, onChange, onClear }: Props) {
         <p className={value.service ? undefined : "form-service-empty"}>{value.service || "—"}</p>
       </section>
       <div className="form-actions">
-        <button type="button" onClick={() => download(formText(value, lang))}>
+        <button type="button" className="form-download" onClick={() => download(formText(value, lang))}>
           download form
         </button>
         <button
           type="button"
+          className="form-clear"
           onClick={() => {
             // An emptied form is a fresh one: no "required" under fields nobody has left yet.
             setTouched({});
