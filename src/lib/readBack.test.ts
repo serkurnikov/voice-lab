@@ -26,7 +26,17 @@ test("a no rejects the read-back unless it corrects something else", () => {
   expect(rejects("нет")).toBe(true);
   expect(rejects("No, that isn't right")).toBe(true);
   expect(rejects("да, верно")).toBe(false);
-  expect(rejects("да, но телефон не тот")).toBe(false);
+  expect(rejects("да, но телефон не тот", "name")).toBe(false);
+});
+
+test("a but does not cancel the rejection that follows it", () => {
+  for (const t of ["Да, но машина не та", "Yes, but that is not my car", "да, но машина другая"]) {
+    expect(rejects(t, "car"), t).toBe(true);
+    expect(accepts(t, "car"), t).toBe(false);
+  }
+  for (const t of ["да, но это не так", "yes, but that's wrong", "нет, но спасибо"]) expect(accepts(t, "car"), t).toBe(false);
+  // The yes stands when the but is about something else, or about nothing in the form.
+  for (const t of ["да, но телефон не тот", "да, но ещё нужна диагностика"]) expect(accepts(t, "car"), t).toBe(true);
 });
 
 const NOW = new Date(2026, 10, 16, 12);

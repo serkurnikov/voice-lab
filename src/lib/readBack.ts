@@ -23,7 +23,8 @@ const LABELS: [RegExp, Field][] = [
 
 // "n't" splits off as "t" under \p{L}+, so "isn't right" still reads as a no.
 const NO = new Set(["no", "not", "nope", "wrong", "incorrect", "t", "нет", "не", "неверно", "неправильно"]);
-// "да, но телефон другой" corrects something else; the read-back value stays.
+// What follows a "но" decides: "да, но телефон другой" after a name read-back corrects something
+// else and the name stays; after a phone read-back it takes the yes back.
 const BUT = new Set(["but", "except", "но", "кроме"]);
 // "да, не сомневайтесь" and "no problem" reassure; the negation in them is not an answer.
 const REASSURES = new Set(["сомневайтесь", "сомневайся", "вопрос", "против", "волнуйтесь", "переживайте", "беспокойтесь", "problem", "doubt", "worries"]);
@@ -142,13 +143,19 @@ export function readBacks(text: string, now = new Date()): Partial<ClientProfile
 const YES = new Set(["да", "верно", "правильно", "точно", "ага", "угу", "конечно", "yes", "yeah", "yep", "correct", "right", "sure"]);
 
 /** True when the customer's answer confirms what was just read back. */
-export function accepts(text: string): boolean {
+export function accepts(text: string, about?: Field): boolean {
   const words = text.toLowerCase().match(/\p{L}+/gu) ?? [];
-  return words.some((w) => YES.has(w)) && !rejects(text);
+  return words.some((w) => YES.has(w)) && !rejects(text, about);
 }
 
-/** True when the customer's answer rejects what was just read back. */
-export function rejects(text: string): boolean {
+/** True when the customer's answer rejects what was just read back; `about` is the field that was. */
+export function rejects(text: string, about?: Field): boolean {
   const words = text.toLowerCase().match(/\p{L}+/gu) ?? [];
-  return words.some((w, i) => NO.has(w) && !REASSURES.has(words[i + 1])) && !words.some((w) => BUT.has(w));
+  const no = (list: string[]) => list.some((w, i) => NO.has(w) && !REASSURES.has(list[i + 1]));
+  const but = words.findIndex((w) => BUT.has(w));
+  if (but < 0) return no(words);
+  const tail = words.slice(but + 1);
+  const named = tail.map(fieldFor).filter(Boolean);
+  // A no after the "but" stands unless it is plainly about another field.
+  return no(words.slice(0, but)) || (about !== undefined && named.includes(about)) || (no(tail) && !named.length);
 }

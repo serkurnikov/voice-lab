@@ -94,6 +94,19 @@ test("what the customer says waits for the agent to repeat it and the customer t
   expect(s.profile().name).toBe("Анна");
 });
 
+test("a yes followed by a but about the value read back fills nothing", () => {
+  for (const answer of ["Да, но машина не та", "Yes, but that is not my car"]) {
+    const s = run();
+    s.agent("Записываю машину: Kia Rio. Верно?");
+    s.say(answer);
+    expect(s.profile().car, answer).toBe("");
+  }
+  const s = run();
+  s.agent("Записываю имя: Анна. Верно?");
+  s.say("да, но телефон не тот");
+  expect(s.profile().name).toBe("Анна");
+});
+
 test("a yes to a question that does not repeat the customer's words fills nothing", () => {
   const s = run();
   s.say("телефон 89001234567");

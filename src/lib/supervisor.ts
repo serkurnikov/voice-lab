@@ -193,7 +193,7 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
     else if (e.type === "stt-result") {
       const text = e.result.text;
       if (streamed.trim()) reply(streamed);
-      if (pending && accepts(text)) {
+      if (pending && accepts(text, Object.keys(pending)[0] as keyof ClientProfile)) {
         setProfile(applyPatch(profile(), pending));
         for (const k of Object.keys(pending)) delete said[k as keyof ClientProfile];
       }
