@@ -46,3 +46,20 @@ test("saves fired keystroke by keystroke on a first visit all decrypt, and the l
   expect(await loadProfile()).toEqual(typed.at(-1));
   expect(await loadToken()).toBe("vibe_secret");
 });
+
+test("one failed write does not block every save after it", async () => {
+  const idb = globalThis.indexedDB as unknown as { open: () => unknown };
+  const realOpen = idb.open;
+  idb.open = () => {
+    idb.open = realOpen;
+    const req = { error: new Error("quota") } as { error: Error; onerror?: () => void };
+    setTimeout(() => req.onerror?.());
+    return req;
+  };
+  const profile = { ...EMPTY_PROFILE, name: "Анна" };
+
+  await expect(saveProfile({ ...EMPTY_PROFILE, name: "x" })).rejects.toThrow("quota");
+  await saveProfile(profile);
+
+  expect(await loadProfile()).toEqual(profile);
+});
