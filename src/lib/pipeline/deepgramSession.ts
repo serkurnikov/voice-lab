@@ -65,6 +65,7 @@ export class DeepgramSession implements VoiceSession {
   private lastError: string | undefined;
   private injection: { text: string; settle: (spoken: boolean) => void } | null = null;
   private sharpen = new Desmoother();
+  private prompted = new Set<string>();
 
   constructor(private deps: DeepgramSessionDeps) {}
 
@@ -83,6 +84,7 @@ export class DeepgramSession implements VoiceSession {
     this.stopping = false;
     this.resetTurn();
 
+    this.prompted.clear();
     // Microphone first: a denied permission should fail before a token is spent.
     const audio = (this.deps.audio ?? createBrowserAudio)();
     this.audio = audio;
@@ -104,7 +106,10 @@ export class DeepgramSession implements VoiceSession {
 
   // No contextual update in Deepgram; UpdatePrompt adds to the prompt rather than replacing it.
   // https://developers.deepgram.com/docs/voice-agent-update-prompt
+  // Nothing sent can be taken back, so the same hint is appended once per call.
   sendContextualUpdate(text: string): void {
+    if (this.prompted.has(text)) return;
+    this.prompted.add(text);
     this.send({ type: "UpdatePrompt", prompt: text });
   }
 

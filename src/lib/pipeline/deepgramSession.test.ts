@@ -371,6 +371,14 @@ test("context goes in silently as a prompt update, not as a user turn", async ()
   expect(socket.json()).not.toContainEqual(expect.objectContaining({ type: "InjectUserMessage" }));
 });
 
+test("the prompt only grows, so the same update is appended once per call", async () => {
+  const { socket, session } = await harness();
+
+  for (const t of ["Form still missing: phone.", "Form still missing: car.", "Form still missing: phone."]) session.sendContextualUpdate(t);
+
+  expect(socket.json().filter((m: { type: string }) => m.type === "UpdatePrompt")).toHaveLength(2);
+});
+
 test("an injected agent line reports whether it was spoken or refused", async () => {
   const { socket, session } = await harness();
 
