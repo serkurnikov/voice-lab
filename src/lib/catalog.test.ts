@@ -28,3 +28,22 @@ test("a search is well under a millisecond, so it never shows in a turn", () => 
   for (let i = 0; i < 1000; i++) searchServices("замена тормозных колодок и масла");
   expect((performance.now() - t) / 1000).toBeLessThan(1);
 });
+
+test("a shared verb does not decide which service comes first", () => {
+  expect(ids("заменить шины")[0]).toBe("tires");
+  expect(ids("change tires")[0]).toBe("tires");
+});
+
+test("short words match whatever their ending", () => {
+  expect(ids("шину пробил")[0]).toBe("tires");
+  expect(ids("шина")[0]).toBe("tires");
+});
+
+test("a word that only starts like a service finds nothing", () => {
+  expect(ids("перегрев двигателя")).toEqual([]);
+  expect(ids("горизонт")).toEqual([]);
+});
+
+test("A/C is found despite its slash", () => {
+  expect(ids("не работает A/C")[0]).toBe("ac");
+});
