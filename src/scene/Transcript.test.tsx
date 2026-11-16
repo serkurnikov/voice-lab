@@ -30,13 +30,13 @@ test("agent lines mark tool data as fact and guesses as assumption, with a legen
   act(() => {
     bus.emit({ type: "tool-result", name: "search_services", facts: ["Замена масла", "2500", "30"] });
     bus.emit({ type: "llm-token", token: "Замена масла стоит 2", at: 0 });
-    bus.emit({ type: "llm-token", token: " 500 ₽, займёт примерно 40 минут.", at: 1 });
+    bus.emit({ type: "llm-token", token: " 500 ₽, займёт примерно 50 минут.", at: 1 });
   });
 
   const text = (sel: string) => [...container.querySelectorAll(`.line-text ${sel}`)].map((n) => n.textContent);
   expect(text(".mark-fact")).toEqual(["Замена масла", "2 500 ₽"]);
-  expect(text(".mark-assumption")).toEqual(["примерно", "40 минут"]);
-  expect(container.querySelector(".line-text")?.textContent).toBe("Замена масла стоит 2 500 ₽, займёт примерно 40 минут.");
+  expect(text(".mark-assumption")).toEqual(["примерно", "50 минут"]);
+  expect(container.querySelector('.line[data-who="agent"] .line-text')?.textContent).toBe("Замена масла стоит 2 500 ₽, займёт примерно 50 минут.");
   expect(container.querySelector(".transcript-legend .mark-fact")?.textContent).toMatch(/fact/);
   expect(container.querySelector(".transcript-legend .mark-assumption")?.textContent).toMatch(/assumption/);
 });
@@ -52,6 +52,19 @@ test("a reply quoting the shop's hours is marked as fact before any tool runs", 
   expect(text(".mark-assumption")).toEqual([]);
 });
 
+test("each tool call gets its own row, an empty one included", () => {
+  const bus = new EventBus();
+  const { container } = render(<Transcript bus={bus} />);
+
+  act(() => {
+    bus.emit({ type: "tool-result", name: "update_form", facts: ["Пётр"] });
+    bus.emit({ type: "tool-result", name: "find_slots", facts: [] });
+  });
+
+  const rows = [...container.querySelectorAll('.line[data-who="tool"] .line-text')].map((n) => n.textContent);
+  expect(rows).toEqual(["update_form → Пётр", "find_slots → nothing found"]);
+});
+
 // jsdom's Blob has no .text(); FileReader is the jsdom-native way in.
 const readText = (b: Blob) =>
   new Promise<string>((done) => {
@@ -59,3 +72,11 @@ const readText = (b: Blob) =>
     r.onload = () => done(r.result as string);
     r.readAsText(b);
   });
+
+test("a price from the prompt's price list is a fact with no tool call behind it", () => {
+  const bus = new EventBus();
+  const { container } = render(<Transcript bus={bus} />);
+  act(() => bus.emit({ type: "llm-token", token: "Замена масла стоит 2500 ₽.", at: 0 }));
+  const facts = [...container.querySelectorAll(".line-text .mark-fact")].map((n) => n.textContent);
+  expect(facts).toEqual(["Замена масла", "2500 ₽"]);
+});

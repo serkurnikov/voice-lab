@@ -125,7 +125,11 @@ test("nothing is sent to a conversation the user has ended", async () => {
   token = "vibe_test";
   render(<App />);
   await startConversation();
-  await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+  // A first nudge proves the supervisor is live before it is cut off.
+  await waitFor(() => {
+    endTurn();
+    expect(sent.length).toBeGreaterThan(0);
+  });
   fireEvent.click(await screen.findByRole("button", { name: /end conversation/i }));
   await screen.findByRole("button", { name: /start conversation/i });
   const before = sent.length;
@@ -139,7 +143,11 @@ test("nothing is sent to a conversation the agent has hung up", async () => {
   token = "vibe_test";
   render(<App />);
   await startConversation();
-  await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+  // A first nudge proves the supervisor is live before it is cut off.
+  await waitFor(() => {
+    endTurn();
+    expect(sent.length).toBeGreaterThan(0);
+  });
   act(() => deps!.onEnded("agent"));
   const before = sent.length;
 
@@ -152,7 +160,11 @@ test("nothing is sent once the page is gone", async () => {
   token = "vibe_test";
   const { unmount } = render(<App />);
   await startConversation();
-  await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+  // A first nudge proves the supervisor is live before it is cut off.
+  await waitFor(() => {
+    endTurn();
+    expect(sent.length).toBeGreaterThan(0);
+  });
   const bus = deps!.bus;
   unmount();
   const before = sent.length;

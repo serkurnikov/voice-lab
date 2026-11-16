@@ -1,5 +1,6 @@
-import { applyPatch, FIELDS, missingRequired, validate, type ClientProfile } from "./formModel";
+import { applyPatch, missingRequired, validate, type ClientProfile } from "./formModel";
 import type { EventBus } from "./events";
+import { readBacks, rejects } from "./readBack";
 
 const L = "АВЕКМНОРСТУХABEKMHOPCTYX";
 // \b is ASCII-only in JS even with /u, so Cyrillic plates need explicit edges.
@@ -24,9 +25,17 @@ function findPlate(text: string): string | undefined {
   }
 }
 
+// "I'm looking for…" is not a name; a capital is what the transcript gives a name.
+const IM = /(?<![\p{L}])I(?:'|’)?m\s+(\p{Lu}\p{Ll}+)(?![\p{L}])/u;
+
+const NOT_NAMES = new Set(["not", "sure", "sorry", "fine", "just", "here", "calling", "interested", "afraid", "trying", "ok", "okay"]);
+
 function findName(text: string): string | undefined {
   const lead = NAME_LEAD.exec(text);
-  if (!lead) return;
+  if (!lead) {
+    const im = IM.exec(text)?.[1];
+    return im && !NOT_NAMES.has(im.toLowerCase()) ? im : undefined;
+  }
   const words = text.slice(lead.index + lead[0].length).match(/[\p{L}-]+/gu) ?? [];
   let i = 0;
   while (i < words.length) {
@@ -64,6 +73,16 @@ export function nudge(p: ClientProfile): string | null {
   ].filter(Boolean).join(" ");
 }
 
+// Driving on is the risk with these; the prompt says so too, this catches the turn it forgets.
+const UNSAFE: [string, RegExp][] = [
+  ["brakes not working", /тормоз\p{L}*\s+(?:не\s+работа|отказ)|отказал\p{L}*\s+тормоз|нет\s+тормоз|brakes?\s+(?:do\s*n.?t|not|failed)|no brakes/iu],
+  ["smoke from the engine", /дым|smok/iu],
+  ["smell of fuel", /пахн\p{L}*\s+бензин|запах\p{L}*\s+бензин|smell\p{L}*\s+(?:of\s+)?(?:fuel|petrol|gas)/iu],
+  ["steering heavy or locked", /рул\p{L}*\s+(?:заклин|тяж|не\s+повора)|steering\b.*\b(?:heavy|locked|stiff)/iu],
+];
+const CLAIMS_BOOKED =
+  /вы\s+записаны|запись\s+(?:подтверждена|оформлена)|я\s+(?:вас\s+)?записал|you(?:'re| are)\s+(?:all\s+)?(?:booked|set)\b|(?:booking|appointment)\s+is\s+(?:confirmed|made|booked)/iu;
+
 interface Deps {
   bus: EventBus;
   profile: () => ClientProfile;
@@ -72,17 +91,40 @@ interface Deps {
 }
 
 /**
- * Fills the form from what the customer says and steers the model with what is left.
- * Works whether or not the model ever calls update_form.
+ * Fills the form from the agent's read-backs and the customer's own words, and steers the
+ * model with what is left. Works whether or not the model ever calls update_form.
  */
 export function supervise({ bus, profile, setProfile, send }: Deps): () => void {
-  const known = FIELDS.filter((k) => profile()[k]).map((k) => `${k}: ${profile()[k]}`);
-  if (known.length) send(`Returning customer, already on file: ${known.join("; ")}. Do not ask again.`);
   let last: string | null = null;
+  // The one value just read back and what it replaced, so a "нет" can undo it.
+  let pending: { field: keyof ClientProfile; was: string } | null = null;
+  const sent = new Set<string>();
+  // The same hint twice reads to the model as insistence.
+  const hint = (key: string, text: string) => {
+    if (!sent.has(key)) send(text);
+    sent.add(key);
+  };
+
   return bus.on((e) => {
-    if (e.type === "stt-result") {
-      const patch = extractFields(e.result.text);
+    if (e.type === "agent-reply") {
+      const heard = readBacks(e.text);
+      const fields = Object.keys(heard) as (keyof ClientProfile)[];
+      // Two read-backs in one breath leave a lone "нет" ambiguous, so neither is undone by it.
+      pending = fields.length === 1 ? { field: fields[0], was: profile()[fields[0]] } : null;
+      if (fields.length) setProfile(applyPatch(profile(), heard));
+      if (fields.length > 1) hint(`two:${e.text}`, "Read back one value per turn and wait for the customer's answer.");
+      if (CLAIMS_BOOKED.test(e.text) && nudge(profile())) {
+        hint(`claim:${missingRequired(profile()).join(",")}`, "Nothing is booked yet. Correct yourself and ask for what the form is still missing.");
+      }
+    } else if (e.type === "stt-result") {
+      const text = e.result.text;
+      if (pending && rejects(text)) setProfile(applyPatch(profile(), { [pending.field]: pending.was }));
+      pending = null;
+      const patch = extractFields(text);
       if (Object.keys(patch).length) setProfile(applyPatch(profile(), patch));
+      for (const [label, cue] of UNSAFE) {
+        if (cue.test(text)) hint(`unsafe:${label}`, `The customer described "${label}". Before anything else, tell them not to drive the car and to call a tow truck.`);
+      }
     } else if (e.type === "turn-end") {
       const text = nudge(profile());
       // Once per change: repeating the same nudge every turn only makes the agent nag.

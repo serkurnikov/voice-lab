@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { EventBus } from "./events";
 import { EMPTY_PROFILE, type ClientProfile } from "./formModel";
-import { extractFields, supervise } from "./supervisor";
+import { extractFields, nudge, supervise } from "./supervisor";
 
 test("phone, plate and name come out of a spoken line", () => {
   expect(extractFields("Меня зовут анна, номер А123ВС77, телефон +7 900 123-45-67")).toEqual({
@@ -55,6 +55,13 @@ test("the plate's digits never end up in the phone", () => {
   expect(extractFields("А123ВС77 89001234567")).toEqual({ plate: "А123ВС77", phone: "89001234567" });
 });
 
+test("the demo's \"Hi, I'm Anna\" gives the name, \"I'm looking\" does not", () => {
+  expect(extractFields("Hi, I'm Anna, I drive a Kia Rio and I need an oil change.")).toEqual({ name: "Anna" });
+  expect(extractFields("Im Oleg")).toEqual({ name: "Oleg" });
+  expect(extractFields("I'm looking for an oil change")).toEqual({});
+  expect(extractFields("Hi, I'm Not sure. I'm Calling about brakes")).toEqual({});
+});
+
 test("a corrected name is the one kept, never the negation", () => {
   expect(extractFields("меня зовут не Анна а Мария")).toEqual({ name: "Мария" });
   expect(extractFields("меня зовут ну Олег")).toEqual({ name: "Олег" });
@@ -67,7 +74,8 @@ function run(start: ClientProfile = EMPTY_PROFILE) {
   supervise({ bus, profile: () => p, setProfile: (n) => (p = n), send: (t) => sent.push(t) });
   const say = (text: string) => bus.emit({ type: "stt-result", result: { text, words: [] } });
   const endTurn = () => bus.emit({ type: "turn-end", at: 0, metrics: {} as never });
-  return { say, endTurn, sent, profile: () => p };
+  const agent = (text: string) => bus.emit({ type: "agent-reply", text, at: 0 });
+  return { say, agent, endTurn, sent, profile: () => p };
 }
 
 test("what the customer says lands in the form without any tool call", () => {
@@ -76,13 +84,54 @@ test("what the customer says lands in the form without any tool call", () => {
   expect(s.profile()).toMatchObject({ name: "Анна", phone: "89001234567", car: "Kia Rio" });
 });
 
-test("a returning customer is announced once, and each nudge is sent once", () => {
+test("a returning customer is briefed by the prompt only, and each nudge is sent once", () => {
   const s = run({ ...EMPTY_PROFILE, name: "Анна" });
-  expect(s.sent).toEqual(["Returning customer, already on file: name: Анна. Do not ask again."]);
+  expect(s.sent).toEqual([]);
   s.endTurn();
   s.endTurn();
-  expect(s.sent.slice(1)).toEqual(["Form still missing: phone, car, service. Ask for one of them next."]);
+  expect(s.sent).toEqual(["Form still missing: phone, car, service. Ask for one of them next."]);
   s.say("телефон 89001234567");
   s.endTurn();
   expect(s.sent.at(-1)).toBe("Form still missing: car, service. Ask for one of them next.");
+});
+
+test("a booked date with its time is not questioned after the booking", () => {
+  expect(nudge({ name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" })).toBeNull();
+  expect(nudge({ name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 25:30" })).toMatch(/date/);
+});
+
+test("a value the agent reads back fills the form, and a no puts the old one back", () => {
+  const s = run({ ...EMPTY_PROFILE, car: "Kia Rio" });
+  s.agent("Записываю машину: Hyundai Solaris. Верно?");
+  expect(s.profile().car).toBe("Hyundai Solaris");
+  s.say("нет, это не так");
+  expect(s.profile().car).toBe("Kia Rio");
+  s.agent("Записываю телефон: +7 912 345 67 89. Верно?");
+  s.say("да");
+  s.say("нет");
+  expect(s.profile().phone).toBe("+7 912 345 67 89");
+});
+
+test("a no after two read-backs undoes neither, and the agent is told to read one at a time", () => {
+  const s = run();
+  s.agent("Записываю имя: Анна. Верно? Записываю машину: Kia Rio. Верно?");
+  s.say("нет");
+  expect(s.profile()).toMatchObject({ name: "Анна", car: "Kia Rio" });
+  expect(s.sent).toEqual(["Read back one value per turn and wait for the customer's answer."]);
+});
+
+test("a safety symptom gets a stop-driving hint, once", () => {
+  const s = run();
+  s.say("у меня тормоза не работают");
+  s.say("тормоза не работают совсем");
+  expect(s.sent).toEqual([expect.stringMatching(/brakes not working.*not to drive.*tow truck/)]);
+});
+
+test("claiming a booking with the form incomplete is called out", () => {
+  const s = run({ ...EMPTY_PROFILE, name: "Анна" });
+  s.agent("Отлично, вы записаны на завтра.");
+  expect(s.sent).toEqual([expect.stringMatching(/^Nothing is booked yet/)]);
+  const done = run({ name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" });
+  done.agent("Вы записаны на 17 ноября.");
+  expect(done.sent).toEqual([]);
 });

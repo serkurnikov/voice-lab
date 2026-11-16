@@ -763,6 +763,7 @@ body {
    hues: the user's words come in through stt, the reply goes out through tts. */
 .line[data-who="you"] .line-who { color: var(--stage-stt); }
 .line[data-who="agent"] .line-who { color: var(--stage-tts); }
+.line[data-who="tool"] .line-text { font-family: var(--mono); font-size: 11px; color: var(--rack-dim); }
 .line[data-failed="true"] .line-text { color: var(--fail); }
 
 /* ── settings ──────────────────────────────────────────────────────────── */

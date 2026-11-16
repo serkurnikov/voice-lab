@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEEPGRAM_PROMPT, SHOP_FACTS, SYSTEM_PROMPT, TOOL_NAMES } from "./persona";
+import { readBacks } from "./readBack";
+import { DEEPGRAM_PROMPT, READ_BACK_EXAMPLE, READ_BACK_EXAMPLE_RU, SERVICE_FACTS, SHOP_FACTS, SYSTEM_PROMPT, TOOL_NAMES } from "./persona";
 
 describe("persona", () => {
   it("is a car-service desk that names every client tool", () => {
@@ -8,8 +9,8 @@ describe("persona", () => {
   });
 
   it("books only after the customer confirms and the phone is read back", () => {
-    expect(SYSTEM_PROMPT).toMatch(/book_appointment only after the customer has confirmed/);
-    expect(SYSTEM_PROMPT).toMatch(/read back/);
+    expect(SYSTEM_PROMPT).toMatch(/book_appointment once the customer has confirmed/);
+    expect(SYSTEM_PROMPT).toMatch(/Read every value back on its own turn/);
   });
 
   it("speaks Russian or English on ElevenLabs, English only on the backup", () => {
@@ -38,9 +39,26 @@ describe("persona", () => {
         expect(prompt).toContain(core);
     });
 
+    it(`states the price list on ${engine}`, () => {
+      expect(prompt).toMatch(/Price list:/);
+      for (const fact of SERVICE_FACTS) expect(prompt).toContain(fact);
+      expect(prompt).toContain("Замена масла, Oil change: 2500 ₽, 30 min");
+    });
+
+    it(`quotes a read-back the form can parse on ${engine}`, () => {
+      expect(prompt).toContain(READ_BACK_EXAMPLE_RU);
+      expect(readBacks(READ_BACK_EXAMPLE_RU)).toEqual({ phone: "+7 912 345 67 89" });
+      expect(readBacks(READ_BACK_EXAMPLE)).toEqual({ phone: "+7 912 345 67 89" });
+    });
+
+    it(`does not promise a lookup it does not make on ${engine}`, () => {
+      expect(prompt).toMatch(/Never say "one moment"/);
+      expect(prompt).toMatch(/tell them not to drive the car and to call a tow truck/);
+    });
+
     it(`keeps facts to tool results and marks assumptions on ${engine}`, () => {
-      expect(prompt).toMatch(/come only from\s+tool results/);
-      expect(prompt).toMatch(/facts about the shop come only from the Shop facts/);
+      expect(prompt).toMatch(/free times only from tool results/);
+      expect(prompt).toMatch(/facts about the shop only from the\s+Shop facts/);
       expect(prompt).toMatch(/must be said as one/);
       expect(prompt).toMatch(/I assume/);
     });

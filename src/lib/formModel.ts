@@ -34,7 +34,7 @@ const MSG = {
   },
 };
 
-function isIsoDate(s: string): boolean {
+export function isIsoDate(s: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   if (!m) return false;
   const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
@@ -52,7 +52,9 @@ export function validate(p: ClientProfile, lang: Lang): FormErrors {
     if (!/^\d{10,15}$/.test(digits)) errors.phone = t.phone;
   }
   if (p.plate.trim() && !/^[\p{L}\p{N}]{5,9}$/u.test(p.plate.trim())) errors.plate = t.plate;
-  if (p.date.trim() && !isIsoDate(p.date.trim())) errors.date = t.date;
+  // A booking writes the time after the date: "2026-11-17 10:30".
+  const when = /^(\S+)(?: ([01]\d|2[0-3]):[0-5]\d)?$/.exec(p.date.trim());
+  if (p.date.trim() && !(when && isIsoDate(when[1]))) errors.date = t.date;
   return errors;
 }
 

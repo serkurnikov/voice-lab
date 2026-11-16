@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { EventBus } from "../lib/events";
-import { SHOP_FACTS } from "../lib/persona";
+import { PROMPT_FACTS } from "../lib/persona";
+import { saveFile } from "../lib/saveFile";
 import { annotate } from "./annotate";
 
 /**
@@ -20,14 +21,14 @@ export function Transcript({ bus }: { bus: EventBus }) {
   // of creating a row each.
   const openReply = useRef<HTMLElement | null>(null);
   const openText = useRef("");
-  // The prompt states the shop facts outright, so they are known before any tool runs.
-  const facts = useRef(new Set<string>(SHOP_FACTS));
+  // The prompt states the shop facts and prices outright, so they are known before any tool runs.
+  const facts = useRef(new Set<string>(PROMPT_FACTS));
 
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
 
-    const addRow = (who: "you" | "agent", text: string): HTMLElement => {
+    const addRow = (who: "you" | "agent" | "tool", text: string): HTMLElement => {
       const row = document.createElement("li");
       row.className = "line";
       row.dataset.who = who;
@@ -88,6 +89,8 @@ export function Transcript({ bus }: { bus: EventBus }) {
         }
         case "tool-result":
           for (const f of e.facts) facts.current.add(f);
+          // A promised lookup with no row under it means the agent never called the tool.
+          addRow("tool", `${e.name} → ${e.facts.join(", ") || "nothing found"}`);
           break;
         case "stage-error":
           addRow("agent", `${e.stage} failed: ${e.message}`).parentElement?.setAttribute(
@@ -123,10 +126,5 @@ function download(list: HTMLOListElement | null) {
   const lines = [...list.querySelectorAll(".line")].map(
     (row) => `${row.querySelector(".line-who")?.textContent}: ${row.querySelector(".line-text")?.textContent}`,
   );
-  const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/plain" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `conversation-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveFile(`conversation-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`, lines.join("\n") + "\n");
 }
