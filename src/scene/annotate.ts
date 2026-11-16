@@ -24,9 +24,11 @@ const HEDGE = new RegExp(
 
 const MONEY = /^\s?(?:₽|руб|rub|roub)/iu;
 const TIME = /^\s?(?:мин|min)/iu;
-type Kind = "money" | "time" | "any";
-// A fact that says "2500 ₽" backs a price, not "2500 минут"; a bare tool number backs either.
-const kindAfter = (s: string): Kind => (MONEY.test(s) ? "money" : TIME.test(s) ? "time" : "any");
+type Kind = "money" | "time" | "other" | "any";
+// A fact that says "2500 ₽" backs a price, not "2500 минут", and "6 months" backs neither a
+// price nor minutes; a bare tool number backs any of them.
+const kindAfter = (s: string): Kind =>
+  MONEY.test(s) ? "money" : TIME.test(s) ? "time" : /^\s?\p{L}/u.test(s) ? "other" : "any";
 const NEGATED = /(?<![\p{L}])(?:не|not)\s+$/iu;
 const digits = (s: string) => s.replace(/\D/g, "");
 // "09:00" is said as "9:00".

@@ -49,3 +49,9 @@ test("traps that must never read as fact", () => {
   expect(marked("Ваш номер 912 500 67 89.", PHONE, "fact")).toEqual(["912 500", "67", "89"]);
   expect(marked("Займёт 30 минут, 2500 ₽.", PRICES, "fact")).toEqual(["30 минут", "2500 ₽"]);
 });
+
+test("a number the facts give in another unit does not back a price or a duration", () => {
+  const WARRANTY = ["Warranty on work: 6 months or 10 000 km"];
+  expect(marked("Займёт 6 минут и стоит 6 рублей.", WARRANTY, "assumption")).toEqual(["6 минут", "6 рублей"]);
+  expect(marked("Гарантия 6 месяцев или 10 000 км.", WARRANTY, "fact")).toEqual(["6", "10 000"]);
+});
