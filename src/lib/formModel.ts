@@ -94,16 +94,20 @@ export function parseProfile(raw: string): ClientProfile {
   }
 }
 
-// Who the customer is carries over between calls; what they booked last time does not.
+// Who the customer is is re-confirmed on every call; the booking is briefed separately.
 const REMEMBERED = ["name", "phone", "car", "plate"] as const;
 
 /** What earlier calls left on file, as a note for the agent; empty when nothing is known. */
 export function briefing(p: ClientProfile): string {
   const known = REMEMBERED.filter((k) => p[k]).map((k) => `${k}: ${p[k]}`);
+  // Without it the agent books a returning customer from scratch, as if nothing were on file.
+  const booked = p.service && p.date ? `Booked on an earlier call: ${p.service} on ${p.date}. Mention it and ask whether to keep it, change it or book something else; do not book it again.` : "";
   // Taken on trust, a mis-heard phone from the last call would be booked again unchecked.
-  return known.length
-    ? `The customer has called before. From earlier calls: ${known.join("; ")}. These are not confirmed for this call: read each one back and get a yes before using it.`
-    : "";
+  return [
+    known.length || booked ? "The customer has called before." : "",
+    known.length ? `From earlier calls: ${known.join("; ")}. These are not confirmed for this call: read each one back and get a yes before using it.` : "",
+    booked,
+  ].filter(Boolean).join(" ");
 }
 
 /** The form as a text file, one labelled line per field, empty ones included so gaps show. */

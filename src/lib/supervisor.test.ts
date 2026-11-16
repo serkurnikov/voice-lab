@@ -233,3 +233,12 @@ test("a goodbye before the form is complete does not hang up", () => {
   s.heard();
   expect(s.hungUp.count).toBe(0);
 });
+
+test("a booking already on file when the call starts neither closes the case nor hangs up", () => {
+  const s = run({ name: "Сергей", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" });
+  s.say("алло");
+  s.agent("Вы записаны на замену масла 17 ноября. Оставляем? Всего доброго.");
+  s.heard();
+  expect(s.sent).toEqual([]);
+  expect(s.hungUp.count).toBe(0);
+});

@@ -159,13 +159,16 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
     }
   };
 
+  const caseKey = (p: ClientProfile) => `done:${p.name}|${p.phone}|${p.car}|${p.service}|${p.date}`;
+  // A booking already on file when the call starts is the briefing's to raise, not a reason to hang up.
+  const onFile = caseKey(profile());
   // Without a word that the case is closed the model keeps asking, round and round.
   const closeIfComplete = () => {
     const p = profile();
-    if (!p.date.trim() || nudge(p)) return;
+    if (!p.date.trim() || nudge(p) || caseKey(p) === onFile) return;
     closed = true;
     hint(
-      `done:${p.name}|${p.phone}|${p.car}|${p.service}|${p.date}`,
+      caseKey(p),
       `The booking is recorded: ${p.service} for ${p.name}, ${p.car}, on ${p.date}, phone ${p.phone}. Tell the customer in one sentence what they are booked for, say goodbye, and ask nothing more.`,
     );
   };

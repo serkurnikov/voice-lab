@@ -97,13 +97,14 @@ describe("parseProfile", () => {
   });
 });
 
-test("the briefing names who called before, asks for each to be confirmed, and drops last time's booking", () => {
+test("the briefing names who called before, asks for each to be confirmed, and tells of last time's booking", () => {
   expect(briefing(EMPTY_PROFILE)).toBe("");
   const b = briefing({ ...EMPTY_PROFILE, name: "Анна", car: "Kia Rio", service: "Замена масла", date: "2026-11-17" });
   expect(b).toContain("name: Анна");
   expect(b).toContain("car: Kia Rio");
   expect(b).not.toContain("phone");
-  expect(b).not.toMatch(/Замена|2026/);
+  expect(b).toMatch(/Booked on an earlier call: Замена масла on 2026-11-17\. Mention it.*do not book it again/);
+  expect(briefing({ ...EMPTY_PROFILE, name: "Анна", service: "Замена масла" })).not.toMatch(/Booked/);
   expect(b).toMatch(/not confirmed for this call: read each one back and get a yes/);
   expect(b).not.toMatch(/do not ask/);
 });
