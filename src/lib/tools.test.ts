@@ -1,5 +1,8 @@
 import { expect, test } from "vitest";
 import { EMPTY_PROFILE, type ClientProfile } from "./formModel";
+import { makeConfirmed } from "./confirmed";
+import { EventBus } from "./events";
+import { supervise } from "./supervisor";
 import { makeTools } from "./tools";
 import { TOOL_NAMES } from "./persona";
 import type { PipelineEvent } from "./types";
@@ -7,15 +10,16 @@ import type { PipelineEvent } from "./types";
 // Monday; the dates below are the days after it.
 const NOW = new Date(2026, 10, 16, 12);
 
-function harness(start: Partial<ClientProfile> = {}) {
+function harness(start: Partial<ClientProfile> = {}, now = NOW) {
   let p: ClientProfile = { ...EMPTY_PROFILE, ...start };
   const reported: PipelineEvent[] = [];
-  const tools = makeTools({ profile: () => p, setProfile: (n) => (p = n), report: (e) => reported.push(e), now: () => NOW });
+  const confirmed = makeConfirmed();
+  const tools = makeTools({ profile: () => p, setProfile: (n) => (p = n), confirmed, report: (e) => reported.push(e), now: () => now });
   const call = async (name: string, args: Record<string, unknown>) =>
     JSON.parse(await tools.find((t) => t.name === name)!.run(args));
   const facts = (name: string) =>
     reported.flatMap((e) => (e.type === "tool-result" && e.name === name ? e.facts : []));
-  return { call, profile: () => p, tools, facts, reported };
+  return { call, profile: () => p, setProfile: (n: ClientProfile) => (p = n), tools, facts, reported, confirmed };
 }
 
 test("every tool the prompt names exists", () => {
@@ -24,6 +28,7 @@ test("every tool the prompt names exists", () => {
 
 test("update_form fills the form and says what is still missing", async () => {
   const h = harness();
+  h.confirmed.add({ name: "Анна", car: "Kia Rio" });
   const out = await h.call("update_form", { name: " Анна ", car: "Kia Rio", evil: "x" });
 
   expect(h.profile()).toMatchObject({ name: "Анна", car: "Kia Rio" });
@@ -40,6 +45,7 @@ test("a booking needs a complete form, and takes the slot", async () => {
 
   expect(await h.call("book_appointment", at)).toMatchObject({ error: "form incomplete", missing: ["phone"] });
 
+  h.confirmed.add({ phone: "89001234567" });
   await h.call("update_form", { phone: "+7 900 123-45-67" });
   expect(await h.call("book_appointment", at)).toMatchObject({ ok: true });
   expect(h.profile()).toMatchObject({ service: "Замена масла", date: "2026-11-17 10:30" });
@@ -51,6 +57,7 @@ test("each tool reports the facts it handed the agent", async () => {
   const h = harness({ name: "Анна", car: "Kia Rio" });
   await h.call("search_services", { query: "замена масла" });
   await h.call("find_slots", { date: "2026-11-17" });
+  h.confirmed.add({ phone: "89001234567" });
   await h.call("update_form", { phone: "+7 900 123-45-67" });
   await h.call("book_appointment", { service_id: "oil", date: "2026-11-17", time: "10:30" });
 
@@ -85,4 +92,41 @@ test("a booking is refused on a Sunday or a date that is not YYYY-MM-DD, like th
   expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-22", time: "10:30" })).toEqual({ error: "closed on Sunday" });
   expect(await h.call("book_appointment", { service_id: "oil", date: "tomorrow", time: "10:30" })).toEqual({ error: "date must be YYYY-MM-DD" });
   expect(h.profile()).toMatchObject({ service: "", date: "" });
+});
+
+test("a time already gone today is neither offered nor booked", async () => {
+  const h = harness({ name: "Анна", phone: "89001234567", car: "Kia Rio" }, new Date(2026, 10, 16, 16));
+  expect(await h.call("find_slots", { date: "2026-11-16" })).toEqual(["17:00"]);
+  expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-16", time: "10:30" })).toEqual({ error: "time has passed" });
+  expect(h.profile().date).toBe("");
+  expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-16", time: "17:00" })).toMatchObject({ ok: true });
+});
+
+test("a phone that is present but not a phone does not book", async () => {
+  const h = harness({ name: "Анна", phone: "123", car: "Kia Rio" });
+  expect(await h.call("book_appointment", { service_id: "oil", date: "2026-11-17", time: "10:30" })).toEqual({ error: "form invalid", invalid: ["phone"] });
+  expect(h.profile().date).toBe("");
+  expect(h.facts("book_appointment")).toEqual([]);
+});
+
+test("update_form saves only what the customer said yes to in a read-back", async () => {
+  const h = harness();
+  const bus = new EventBus();
+  supervise({ bus, profile: h.profile, setProfile: h.setProfile, send: () => {}, confirmed: h.confirmed });
+  const say = (text: string) => bus.emit({ type: "stt-result", result: { text, words: [] } });
+
+  expect(await h.call("update_form", { phone: "+7 900 123-45-67", name: "Анна" })).toMatchObject({ ok: false, unconfirmed: ["name", "phone"] });
+  expect(h.profile()).toEqual(EMPTY_PROFILE);
+  expect(h.facts("update_form")).toEqual([]);
+
+  bus.emit({ type: "agent-reply", text: "Записываю телефон: +7 900 123-45-67. Верно?", at: 0 });
+  say("нет");
+  expect(await h.call("update_form", { phone: "+7 900 123-45-67" })).toMatchObject({ ok: false });
+  expect(h.profile().phone).toBe("");
+
+  bus.emit({ type: "agent-reply", text: "Записываю телефон: +7 900 123-45-67. Верно?", at: 0 });
+  say("да");
+  // The same number in another spelling is the confirmed one; the name is still only heard.
+  expect(await h.call("update_form", { phone: "8 (900) 123-45-67", name: "Анна" })).toMatchObject({ ok: false, unconfirmed: ["name"] });
+  expect(h.profile()).toMatchObject({ phone: "8 (900) 123-45-67", name: "" });
 });

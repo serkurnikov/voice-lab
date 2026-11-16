@@ -1,4 +1,5 @@
 import { applyPatch, missingRequired, validate, type ClientProfile } from "./formModel";
+import type { Confirmed } from "./confirmed";
 import type { EventBus } from "./events";
 import { accepts, readBacks } from "./readBack";
 
@@ -102,6 +103,8 @@ interface Deps {
   send: (text: string) => void;
   /** Ends the call from our side; the agent has no end_call tool on the dashboard. */
   hangUp?: () => void;
+  /** Filled on each yes, for update_form to check against. */
+  confirmed?: Confirmed;
 }
 
 const squash = (s: string) => s.replace(/\s/g, "").toUpperCase().replace(/[A-Z]/g, (c) => CYRILLIC[c] ?? c);
@@ -120,7 +123,9 @@ function echoes(reply: string, field: keyof ClientProfile, value: string): boole
  * own words once the agent repeats them — and steers the model with what is left. Works whether
  * or not the model ever calls update_form.
  */
-export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () => void {
+export function supervise({ bus, profile, setProfile, send, hangUp, confirmed }: Deps): () => void {
+  // A yes from an earlier call confirms nothing in this one.
+  confirmed?.clear();
   let last: string | null = null;
   // The value just read back waits for the customer's yes; a mis-heard read-back never reaches the form.
   let pending: Partial<ClientProfile> | null = null;
@@ -195,6 +200,7 @@ export function supervise({ bus, profile, setProfile, send, hangUp }: Deps): () 
       if (streamed.trim()) reply(streamed);
       if (pending && accepts(text, Object.keys(pending)[0] as keyof ClientProfile)) {
         setProfile(applyPatch(profile(), pending));
+        confirmed?.add(pending);
         for (const k of Object.keys(pending)) delete said[k as keyof ClientProfile];
       }
       pending = null;

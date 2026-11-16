@@ -48,10 +48,12 @@ export function isIsoDate(s: string): boolean {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** True when a "YYYY-MM-DD[ HH:MM]" value falls on a day already gone. */
+/** True when a "YYYY-MM-DD[ HH:MM]" value is a day already gone, or a time already gone today. */
 export function isPast(date: string, now: Date): boolean {
-  const day = date.trim().slice(0, 10);
-  return isIsoDate(day) && day < `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const [day, time] = date.trim().split(/\s+/);
+  if (!isIsoDate(day)) return false;
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return day < today || (day === today && !!time && time <= `${pad(now.getHours())}:${pad(now.getMinutes())}`);
 }
 
 export function validate(p: ClientProfile, lang: Lang, now = new Date()): FormErrors {

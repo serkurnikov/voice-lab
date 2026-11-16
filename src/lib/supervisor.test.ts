@@ -186,12 +186,12 @@ test("claiming a booking with the form incomplete is called out", () => {
 });
 
 test("a full form is not a booking: the claim stands only after book_appointment succeeded", () => {
-  const full = { name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" };
-  const s = run(full);
+  const filled = { name: "Анна", phone: "89001234567", car: "Kia Rio", plate: "", service: "Замена масла", date: "2026-11-17 10:30" };
+  const s = run(filled);
   s.agent("You are booked for tomorrow.");
   expect(s.sent).toEqual([expect.stringMatching(/^Nothing is booked yet.*call book_appointment/)]);
 
-  const done = run(full);
+  const done = run(filled);
   done.bus.emit({ type: "tool-result", name: "book_appointment", facts: ["2026-11-17", "10:30"] });
   done.agent("Вы записаны на 17 ноября.");
   expect(done.sent).toEqual([]);

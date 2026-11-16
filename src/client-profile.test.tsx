@@ -114,8 +114,15 @@ test("the agent's update_form lands in the form on screen and in the store", asy
 
   const run = (name: string, args: Record<string, unknown>) =>
     deps!.functions!.find((f) => f.name === name)!.run(args);
+  // The tool saves only what the customer said yes to, so each value is read back first.
+  const yes = (readBack: string) => {
+    deps!.bus.emit({ type: "agent-reply", text: readBack, at: 0 });
+    deps!.bus.emit({ type: "stt-result", result: { text: "да", words: [] } });
+  };
   await act(async () => {
+    yes("Записываю телефон: +7 900 123-45-67. Верно?");
     await run("update_form", { phone: "+7 900 123-45-67" });
+    yes("Записываю госномер: А123ВС77. Верно?");
     await run("update_form", { plate: "А123ВС77" });
   });
 

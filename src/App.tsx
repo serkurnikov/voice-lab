@@ -10,6 +10,7 @@ import { clearProfile, loadProfile, loadToken, saveProfile, saveToken } from "./
 import { briefing, EMPTY_PROFILE, type ClientProfile } from "./lib/formModel";
 import { greeting, today } from "./lib/persona";
 import { makeTools } from "./lib/tools";
+import { makeConfirmed } from "./lib/confirmed";
 import { supervise } from "./lib/supervisor";
 import { ClientForm } from "./ClientForm";
 import { Recorder, fixtureFilename, toFixtureJson } from "./lib/recorder";
@@ -141,6 +142,7 @@ export function App() {
   }, [config, transport]);
 
   const sessionRef = useRef<VoiceSession | null>(null);
+  const confirmed = useMemo(makeConfirmed, []);
   const unsuperviseRef = useRef<(() => void) | null>(null);
   /** The engine the last start attempt used, so its failure is worded for that engine. */
   const engineRef = useRef<Engine>("elevenlabs");
@@ -168,11 +170,11 @@ export function App() {
         );
         setEndedBy(reason);
       },
-      functions: makeTools({ profile: () => profileRef.current, setProfile: updateProfile, report: (e) => bus.emit(e) }),
+      functions: makeTools({ profile: () => profileRef.current, setProfile: updateProfile, confirmed, report: (e) => bus.emit(e) }),
       briefing: () => [today(new Date()), briefing(profileRef.current)].filter(Boolean).join("\n\n"),
       greeting: () => greeting(profileRef.current.name),
     };
-  }, [bus, transport, recorder, updateProfile]);
+  }, [bus, transport, recorder, updateProfile, confirmed]);
 
   // Stable across renders on purpose. The mouth's animation loop depends on this
   // callback, and handing it a fresh arrow every render used to tear the loop down
@@ -239,6 +241,7 @@ export function App() {
             saveRecordingRef.current?.();
           });
         },
+        confirmed,
       });
       setTalking(true);
     } catch (e) {
@@ -257,7 +260,7 @@ export function App() {
       void sessionRef.current?.stop();
       sessionRef.current = null;
     },
-    [sessionDeps, bus, updateProfile],
+    [sessionDeps, bus, updateProfile, confirmed],
   );
 
   return (

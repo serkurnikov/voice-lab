@@ -1,11 +1,14 @@
 import { searchServices, serviceFact, SERVICES } from "./catalog";
-import { applyPatch, FIELDS, isIsoDate, isPast, missingRequired, type ClientProfile } from "./formModel";
+import type { Confirmed } from "./confirmed";
+import { applyPatch, FIELDS, isIsoDate, isPast, missingRequired, validate, type ClientProfile } from "./formModel";
 import type { ClientFunction } from "./pipeline/session";
 import type { PipelineEvent } from "./types";
 
 export interface ToolDeps {
   profile: () => ClientProfile;
   setProfile: (p: ClientProfile) => void;
+  /** What the customer said yes to; update_form saves nothing else. */
+  confirmed: Confirmed;
   /** Receives a `tool-result` with the facts each run handed the agent. */
   report?: (e: PipelineEvent) => void;
   /** The clock a past date is judged by; injectable so tests do not age. */
@@ -16,7 +19,7 @@ const HOURS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00"];
 const str = { type: "string" };
 
 /** The agent's tools, one list for both engines. Bookings live for the page's lifetime. */
-export function makeTools({ profile, setProfile, report, now = () => new Date() }: ToolDeps): ClientFunction[] {
+export function makeTools({ profile, setProfile, confirmed, report, now = () => new Date() }: ToolDeps): ClientFunction[] {
   const booked = new Set<string>();
   const json = (v: unknown) => JSON.stringify(v);
   const told = <T>(name: string, facts: unknown[], out: T): T => {
@@ -49,13 +52,14 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
       run: ({ date }) => {
         const refused = closed(date);
         if (refused) return told("find_slots", [], json({ error: refused }));
-        const free = HOURS.filter((h) => !booked.has(`${date} ${h}`));
+        // Today's earlier hours are gone as surely as yesterday is.
+        const free = HOURS.filter((h) => !booked.has(`${date} ${h}`) && !isPast(`${date} ${h}`, now()));
         return told("find_slots", free.length ? [date, ...free] : [], json(free));
       },
     },
     {
       name: "book_appointment",
-      description: "Book a confirmed service at a free time. Needs name, phone and car in the form.",
+      description: "Book a confirmed service at a free time. Needs a name, a valid phone and a car in the form.",
       parameters: {
         type: "object",
         properties: { service_id: str, date: str, time: str },
@@ -69,7 +73,11 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
         const refused = closed(date);
         if (refused) return json({ error: refused });
         if (missing.length) return json({ error: "form incomplete", missing });
+        // Present is not enough: a phone of "123" reaches nobody.
+        const invalid = Object.keys(validate({ ...profile(), service: service.ru, date: "" }, "en", now()));
+        if (invalid.length) return json({ error: "form invalid", invalid });
         if (!HOURS.includes(String(time)) || booked.has(slot)) return json({ error: "slot not free" });
+        if (isPast(slot, now())) return json({ error: "time has passed" });
         booked.add(slot);
         setProfile(applyPatch(profile(), { service: service.ru, date: slot }));
         return told("book_appointment", [serviceFact(service), date, time], json({ ok: true, service: service.ru, at: slot }));
@@ -77,14 +85,22 @@ export function makeTools({ profile, setProfile, report, now = () => new Date() 
     },
     {
       name: "update_form",
-      description: "Save form fields the customer has confirmed with a yes to your read-back.",
+      description: "Save form fields the customer has confirmed with a yes to your read-back. Any other value is refused.",
       parameters: { type: "object", properties: Object.fromEntries(FIELDS.map((k) => [k, str])) },
       run: (patch) => {
-        setProfile(applyPatch(profile(), patch));
+        const asked = FIELDS.filter((k) => typeof patch[k] === "string");
+        const saved = asked.filter((k) => confirmed.has(k, patch[k] as string));
+        const unconfirmed = asked.filter((k) => !saved.includes(k));
+        setProfile(applyPatch(profile(), Object.fromEntries(saved.map((k) => [k, patch[k]]))));
         // What the customer said counts as known too, or a phone read back digit by digit
         // would be flagged as a guess.
-        const facts = FIELDS.filter((k) => k in patch).map((k) => profile()[k]).filter(Boolean);
-        return told("update_form", facts, json({ ok: true, missing: missingRequired(profile()) }));
+        const facts = saved.map((k) => profile()[k]);
+        const missing = missingRequired(profile());
+        return told(
+          "update_form",
+          facts,
+          json(unconfirmed.length ? { ok: false, error: "not confirmed: read each back and wait for the customer's yes", unconfirmed, missing } : { ok: true, missing }),
+        );
       },
     },
   ];

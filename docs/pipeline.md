@@ -74,7 +74,7 @@ Three observers sit on the bus beside the scene; none of them is in the session.
   puts it in the form, so a mis-heard value never lands. A date already gone is never filled. A name, phone
   or plate the customer said themselves waits the same way: it is filled once the agent repeats
   it, in any wording, and the customer says yes. It sends, once each, a stop-driving hint for
-  unsafe symptoms and a correction when the agent claims a booking with the form incomplete. Both
+  unsafe symptoms and a correction when the agent claims a booking before `book_appointment` has succeeded. Both
   sessions emit `turn-end` where they report a turn (listening resumes), and on it the supervisor
   sends the "form still missing" nudge, once per change in what is missing.
 - [`tools.ts`](../src/lib/tools.ts) is the one tool list for both engines: `search_services`,
@@ -82,6 +82,12 @@ Three observers sit on the bus beside the scene; none of them is in the session.
   handed the agent. **On ElevenLabs they run only if the same names are declared as client tools
   on the agent in the dashboard**; undeclared, the agent never calls them and only the
   supervisor fills the form.
+  Confirmation is explicit state, not the model's word: [`confirmed.ts`](../src/lib/confirmed.ts)
+  is a per-call ledger the supervisor adds to on each yes to a read-back, and `update_form`
+  saves a value only if it is in the ledger (phones compared by their last ten digits),
+  answering `not confirmed` for the rest. A value typed into the form or kept from an earlier
+  call is not a confirmation. `find_slots` and `book_appointment` refuse a time already gone
+  today as well as a day already gone, and a booking needs the form valid, not merely filled.
 - [`annotate.ts`](../src/scene/annotate.ts) marks the agent's words in the transcript: a name or
   number is a *fact* when the prompt's shop facts and price list or a `tool-result` back it, and
   an *assumption* otherwise, as are hedge words. A fact line written `subject: values`
