@@ -154,3 +154,17 @@ test("context and typed turns go through the SDK's own methods, each to its own"
     ["user", "Book me for tomorrow."],
   ]);
 });
+
+test("the page's tools are handed to the SDK as client tools, by name", async () => {
+  const session = new AgentSession({
+    bus: new EventBus(),
+    transport: { agentToken: async () => ({ token: "t", agentId: "a" }) } as never,
+    onTurn: () => {},
+    onEnded: () => {},
+    functions: [{ name: "update_form", description: "", parameters: {}, run: () => "filled" }],
+  });
+  await session.start();
+
+  const tools = startOptions.clientTools as Record<string, (a: unknown) => string>;
+  expect(tools.update_form({})).toBe("filled");
+});

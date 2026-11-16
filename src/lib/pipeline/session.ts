@@ -15,6 +15,17 @@ export interface SessionDeps {
    * decided it was done, or the connection failed.
    */
   onEnded: (reason: "user" | "agent" | "error", message?: string) => void;
+  functions?: ClientFunction[];
+}
+
+/** A function the agent may call; it runs here in the page, not on the engine's side. */
+export interface ClientFunction {
+  name: string;
+  description: string;
+  /** JSON Schema of the arguments. */
+  parameters: Record<string, unknown>;
+  /** The result goes back to the model as text. */
+  run(args: Record<string, unknown>): string | Promise<string>;
 }
 
 /** What the page drives, whichever engine is underneath. */

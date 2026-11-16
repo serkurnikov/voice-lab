@@ -12,20 +12,11 @@ import type { SessionDeps, VoiceSession } from "./session";
  */
 export const DEEPGRAM_AGENT_URL = "wss://agent.deepgram.com/v1/agent/converse";
 
-/** A function the agent may call; it runs here in the page, not on Deepgram's side. */
-export interface ClientFunction {
-  name: string;
-  description: string;
-  /** JSON Schema of the arguments. */
-  parameters: Record<string, unknown>;
-  /** The result goes back to the model as text. */
-  run(args: Record<string, unknown>): string | Promise<string>;
-}
+export type { ClientFunction } from "./session";
 
 export type InjectBehavior = "default" | "queue" | "interrupt";
 
 export interface DeepgramSessionDeps extends SessionDeps {
-  functions?: ClientFunction[];
   /** Audio hardware; replaced in tests. */
   audio?: () => DeepgramAudio;
 }

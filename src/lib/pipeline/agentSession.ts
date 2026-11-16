@@ -95,6 +95,8 @@ export class AgentSession implements VoiceSession {
 
       // The role travels with the handshake: the server applies it only at start.
       overrides: { agent: { prompt: { prompt: SYSTEM_PROMPT } } },
+      // Only the handlers travel from here: each tool must also be declared on the agent.
+      clientTools: Object.fromEntries((this.deps.functions ?? []).map((f) => [f.name, f.run])),
 
       onModeChange: ({ mode }) => {
         // `Mode` is only "speaking" | "listening" — there is no third value, so the model's
